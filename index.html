@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physiotherapy Clinic Assistant - Download</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .download-section {
+            text-align: center;
+        }
+        
+        .download-btn {
+            display: inline-block;
+            background: #007AFF;
+            color: white;
+            padding: 20px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 20px 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,122,255,0.3);
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(0,122,255,0.4);
+        }
+        
+        .download-btn.mac {
+            background: #007AFF;
+        }
+        
+        .download-btn.windows {
+            background: #0078D4;
+        }
+        
+        .download-btn.linux {
+            background: #FF9500;
+        }
+        
+        .version-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #007AFF;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .feature {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .feature h3 {
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+        
+        .requirements {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .requirements h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+        
+        .requirements ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .requirements li {
+            padding: 5px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .requirements li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-left: 10px;
+        }
+        
+        .file-size {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .download-btn {
+                display: block;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Physiotherapy Clinic Assistant</h1>
+            <p>Professional AI-powered appointment recording and form automation</p>
+        </div>
+        
+        <div class="card download-section">
+            <h2>Download Latest Version</h2>
+            <div class="version-info">
+                <strong>Version 2.0.0</strong> <span class="status-badge">Latest</span>
+                <div class="file-size">macOS Installer: 19 MB</div>
+            </div>
+            
+            <a href="downloads/PhysioClinicAssistant-2.0.0-macOS.dmg" class="download-btn mac">
+                📱 Download for macOS
+            </a>
+            
+            <a href="#" class="download-btn windows" onclick="alert('Windows version coming soon!')">
+                🪟 Windows (Coming Soon)
+            </a>
+            
+            <a href="#" class="download-btn linux" onclick="alert('Linux version coming soon!')">
+                🐧 Linux (Coming Soon)
+            </a>
+        </div>
+        
+        <div class="card">
+            <h2>🚀 Key Features</h2>
+            <div class="features">
+                <div class="feature">
+                    <h3>🎤 Smart Recording</h3>
+                    <p>High-quality audio recording with automatic transcription using Whisper AI</p>
+                </div>
+                <div class="feature">
+                    <h3>📝 Auto Form Filling</h3>
+                    <p>Automatically fill WSIB, OCF-18, and OCF-23 forms with extracted data</p>
+                </div>
+                <div class="feature">
+                    <h3>🔒 Enterprise Security</h3>
+                    <p>AES-256 encryption, audit trails, and secure authentication</p>
+                </div>
+                <div class="feature">
+                    <h3>🤖 AI-Powered</h3>
+                    <p>Advanced data extraction using Qwen3-4B-Instruct for high accuracy</p>
+                </div>
+                <div class="feature">
+                    <h3>📊 Smart Summaries</h3>
+                    <p>Generate physiotherapy-specific appointment summaries</p>
+                </div>
+                <div class="feature">
+                    <h3>⚡ Offline Ready</h3>
+                    <p>Works offline after initial setup and model download</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="requirements">
+                <h3>📋 System Requirements</h3>
+                <ul>
+                    <li>macOS 10.15 (Catalina) or later</li>
+                    <li>8GB RAM minimum (16GB recommended)</li>
+                    <li>10GB free disk space (plus 4.3GB for AI models)</li>
+                    <li>Microphone access</li>
+                    <li>Internet connection (for initial setup and model download)</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📖 Installation Instructions</h2>
+            <ol style="padding-left: 20px; line-height: 1.8;">
+                <li><strong>Download</strong> the macOS installer (.dmg file)</li>
+                <li><strong>Double-click</strong> the downloaded file to mount the disk image</li>
+                <li><strong>Drag</strong> the PhysioClinic Assistant Installer to your Applications folder</li>
+                <li><strong>Run</strong> the installer from Applications</li>
+                <li><strong>Follow</strong> the setup wizard to configure your system</li>
+                <li><strong>Wait</strong> for AI models to download on first run (~4.3GB)</li>
+            </ol>
+            
+            <div style="background: #e3f2fd; border-radius: 10px; padding: 20px; margin-top: 20px;">
+                <h4 style="color: #1976d2; margin-bottom: 10px;">💡 First Run Note</h4>
+                <p>The app will automatically download AI models (~4.3GB) on first launch. This ensures you always have the latest models and keeps the installer small. Make sure you have a stable internet connection for the initial setup.</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🆘 Support & Documentation</h2>
+            <p>Need help? Check out our resources:</p>
+            <ul style="padding-left: 20px; margin-top: 10px;">
+                <li><a href="https://github.com/yourusername/physio-clinic-assistant" target="_blank">📚 GitHub Repository</a></li>
+                <li><a href="https://github.com/yourusername/physio-clinic-assistant/issues" target="_blank">🐛 Report Issues</a></li>
+                <li><a href="mailto:support@physioclinic.com">📧 Email Support</a></li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2024 Physiotherapy Clinic Assistant. Built with ❤️ for healthcare professionals.</p>
+        </div>
+    </div>
+</body>
+</html>
