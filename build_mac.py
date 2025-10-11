@@ -217,9 +217,11 @@ class SimpleMacBuilder:
             return False
     
     def build_installer_app(self) -> bool:
-        """Build installer application"""
+        """Build installer application (lightweight - main app will be bundled separately)"""
         self._log_progress("Building installer application", "Installer")
         
+        # Installer is minimal - only needs GUI and basic system checks
+        # Main app (with all dependencies) will be bundled inside it later
         cmd = [
             sys.executable, "-m", "PyInstaller",
             "--clean",
@@ -228,22 +230,15 @@ class SimpleMacBuilder:
             "--onedir",
             "--name", self.installer_name,
             "--osx-bundle-identifier", "com.physioclinic.installer",
-            "--add-data", "config:config",
-            "--add-data", "forms:forms",
-            "--add-data", "auth:auth",
-            # "--add-data", "models:models",  # Exclude models - download separately
-            "--add-data", "setup_wizard.py:.",
-            "--add-data", "system_checker.py:.",
-            "--add-data", "config_validator.py:.",
-            "--add-data", "uninstaller.py:.",
-            "--add-data", "main.py:.",
             "--add-data", "VERSION:.",
-            "--add-data", "README.md:.",
-            "--add-data", "requirements.txt:.",
+            # Only include minimal files needed for installer GUI
             "--hidden-import", "tkinter",
             "--hidden-import", "tkinter.ttk",
             "--hidden-import", "tkinter.messagebox",
             "--hidden-import", "tkinter.filedialog",
+            "--hidden-import", "platform",
+            "--hidden-import", "shutil",
+            "--hidden-import", "pathlib",
             "mac_installer.py"
         ]
         
