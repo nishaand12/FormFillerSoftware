@@ -2,6 +2,15 @@
 
 A complete Python desktop application for physiotherapy clinics to record patient appointments, transcribe conversations, generate summaries, and automatically fill out medical forms with enterprise-grade security and audit capabilities.
 
+## 💿 Download
+
+**Ready-to-use macOS applications are available for download:**
+
+- **Apple Silicon (M1/M2/M3/M4)**: [Download ARM version](https://github.com/nishaand12/FormFillerSoftware/releases/download/v1.0.0/PhysioClinicAssistant-2.0.0-macOS-ARM.dmg)
+- **Intel x64**: [Download Intel version](https://github.com/nishaand12/FormFillerSoftware/releases/download/v1.0.0/PhysioClinicAssistant-2.0.0-macOS-Intel.dmg)
+
+For full installation instructions and troubleshooting, see the [Installation section](#-installation) below.
+
 ## 🎯 Features
 
 - **Audio Recording**: Record appointments with high-quality audio using PVRecorder
@@ -19,11 +28,14 @@ A complete Python desktop application for physiotherapy clinics to record patien
 
 ## 🖥️ System Requirements
 
-- **OS**: macOS (M1/M2 recommended), Windows 10+, or Linux
-- **Python**: 3.8 or higher
+- **OS**: macOS 10.15+ (Catalina or later)
+  - Apple Silicon (M1/M2/M3/M4) - Recommended
+  - Intel x64 - Supported
+- **Python**: 3.8 or higher (for development builds)
 - **RAM**: 8GB minimum, 16GB recommended
-- **Storage**: 10GB free space for models and recordings
-- **Audio**: Microphone input capability
+- **Storage**: 10GB free space + 4.3GB for AI models
+- **Audio**: Microphone input capability (Bluetooth compatible)
+- **Internet**: Required for initial setup and model download
 
 ## 🤖 AI Models Used
 
@@ -33,6 +45,47 @@ A complete Python desktop application for physiotherapy clinics to record patien
 - **Qwen3-1.7B**: Lightweight alternative for data extraction
 
 ## 📦 Installation
+
+### For macOS Test Build Users
+
+⚠️ **IMPORTANT: This is a test build (not yet Apple-signed)**
+
+After downloading the DMG file, you may see a "damaged" error. Don't worry - the file is fine! Just follow these steps:
+
+#### Quick Fix (Copy & Paste into Terminal)
+
+Open Terminal (Applications → Utilities → Terminal) and paste:
+
+```bash
+xattr -cr ~/Downloads/PhysioClinicAssistant-*.dmg
+```
+
+Press Enter. Now open the DMG file normally!
+
+#### Why This Happens
+
+macOS blocks unsigned apps downloaded from the internet. The command above removes the security flag. This is safe - just make sure you trust the source! Production builds will be signed by Apple and won't need this.
+
+#### Alternative: Right-Click Method
+
+1. Right-click the DMG file
+2. Click "Open"
+3. Click "Open" again in the dialog
+
+(If you still see "damaged", use the Terminal command instead)
+
+#### Alternative: No Terminal Needed
+
+To avoid this entirely, transfer the file via:
+- AirDrop (Mac to Mac)
+- USB drive
+- Local network sharing
+
+Files transferred these ways don't get the security flag!
+
+---
+
+### For Developers: Building from Source
 
 ### 1. Clone the Repository
 ```bash

@@ -77,12 +77,8 @@
             background: #007AFF;
         }
         
-        .download-btn.windows {
-            background: #0078D4;
-        }
-        
-        .download-btn.linux {
-            background: #FF9500;
+        .download-btn.mac-intel {
+            background: #5856d6;
         }
         
         .version-info {
@@ -197,16 +193,12 @@
                 <div class="file-size">macOS Installer: 39 MB</div>
             </div>
             
-            <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v1.0.0/PhysioClinicAssistant-2.0.0-macOS.dmg" class="download-btn mac">
-                📱 Download for macOS
+            <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v1.0.0/PhysioClinicAssistant-2.0.0-macOS-ARM.dmg" class="download-btn mac">
+                 Apple Silicon (M1/M2/M3/M4)
             </a>
             
-            <a href="#" class="download-btn windows" onclick="alert('Windows version coming soon!')">
-                🪟 Windows (Coming Soon)
-            </a>
-            
-            <a href="#" class="download-btn linux" onclick="alert('Linux version coming soon!')">
-                🐧 Linux (Coming Soon)
+            <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v1.0.0/PhysioClinicAssistant-2.0.0-macOS-Intel.dmg" class="download-btn mac-intel">
+                 Intel x64
             </a>
         </div>
         
@@ -271,10 +263,49 @@
         </div>
         
         <div class="card">
+            <h2>⚠️ Test Build Installation Note</h2>
+            <div style="background: #fff3cd; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+                <p><strong>Important:</strong> This is a test build (not yet Apple-signed). After downloading, you may see a "damaged" error. Don't worry - the file is fine! Just follow these steps:</p>
+            </div>
+            
+            <h3>Quick Fix (Copy & Paste into Terminal)</h3>
+            <p>Open Terminal (Applications → Utilities → Terminal) and paste:</p>
+            <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
+                xattr -cr ~/Downloads/PhysioClinicAssistant-*.dmg
+            </div>
+            <p>Press Enter. Now open the DMG file normally!</p>
+            
+            <h3 style="margin-top: 20px;">Why This Happens</h3>
+            <p>macOS blocks unsigned apps downloaded from the internet. The command above removes the security flag. This is safe - just make sure you trust the source! Production builds will be signed by Apple and won't need this.</p>
+            
+            <h3 style="margin-top: 20px;">Alternative Methods</h3>
+            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-top: 10px;">
+                <h4 style="margin-bottom: 10px;">Right-Click Method</h4>
+                <ol style="padding-left: 20px; line-height: 1.8;">
+                    <li>Right-click the DMG file</li>
+                    <li>Click "Open"</li>
+                    <li>Click "Open" again in the dialog</li>
+                </ol>
+                <p style="margin-top: 10px;"><em>If you still see "damaged", use the Terminal command instead.</em></p>
+            </div>
+            
+            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-top: 15px;">
+                <h4 style="margin-bottom: 10px;">No Terminal Needed</h4>
+                <p>To avoid this entirely, transfer the file via:</p>
+                <ul style="padding-left: 20px; margin-top: 10px;">
+                    <li>AirDrop (Mac to Mac)</li>
+                    <li>USB drive</li>
+                    <li>Local network sharing</li>
+                </ul>
+                <p style="margin-top: 10px;">Files transferred these ways don't get the security flag!</p>
+            </div>
+        </div>
+        
+        <div class="card">
             <h2>🆘 Support & Documentation</h2>
             <p>Need help? Check out our resources:</p>
             <ul style="padding-left: 20px; margin-top: 10px;">
-                <li><a href="https://github.com/yourusername/physio-clinic-assistant" target="_blank">📚 Onboarding Guide</a></li>
+                <li><a href="https://github.com/nishaand12/FormFillerSoftware/blob/main/README.md" target="_blank">📚 Onboarding Guide</a></li>
                 <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSd_yKA_D7PrfL62dHHI5a6ywVzfExUSj1MMpHoizibDXAEtfQ/viewform?usp=header" target="_blank">🐛 Report Issues</a></li>
                 <li><a href="mailto:ceteasystems@gmail.com">📧 Email Support</a></li>
             </ul>
