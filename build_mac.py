@@ -303,19 +303,40 @@ For support, visit: https://physioclinic.com/support
         with open(self.dmg_dir / "README.txt", 'w') as f:
             f.write(readme_content)
         
+        # Flush filesystem buffers and wait (prevents "Resource busy" on GitHub Actions)
+        subprocess.run(["sync"], check=False)
+        time.sleep(2)
+        
+        # Detach any existing DMG mounts
+        subprocess.run(["hdiutil", "detach", "/Volumes/PhysioClinicAssistant Installer"], 
+                      capture_output=True, check=False)
+        
         # Create DMG using hdiutil (more reliable than create-dmg)
         temp_dmg = "temp_installer.dmg"
         
-        # Create temporary DMG
-        cmd = [
-            "hdiutil", "create", "-srcfolder", str(self.dmg_dir),
-            "-volname", "PhysioClinicAssistant Installer",
-            "-fs", "HFS+",
-            temp_dmg
-        ]
+        # Remove temp DMG if it exists
+        if Path(temp_dmg).exists():
+            Path(temp_dmg).unlink()
         
-        if not self._run_with_timeout(cmd, timeout=300, description="Create temporary DMG"):
-            return False
+        # Create temporary DMG with retry logic (GitHub Actions can have filesystem delays)
+        max_retries = 3
+        for attempt in range(max_retries):
+            cmd = [
+                "hdiutil", "create", "-srcfolder", str(self.dmg_dir),
+                "-volname", "PhysioClinicAssistant Installer",
+                "-fs", "HFS+",
+                "-ov",  # Overwrite if exists
+                temp_dmg
+            ]
+            
+            if self._run_with_timeout(cmd, timeout=300, description=f"Create temporary DMG (attempt {attempt + 1}/{max_retries})"):
+                break
+            
+            if attempt < max_retries - 1:
+                self._log_progress(f"Retrying after delay...", "WARNING")
+                time.sleep(5)
+            else:
+                return False
         
         # Convert to final compressed DMG
         cmd = [

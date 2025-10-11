@@ -470,18 +470,31 @@ This process typically takes 2-3 minutes.
     def install_app_bundle(self) -> bool:
         """Place the application bundle on Desktop for user to drag"""
         try:
-            # Find the app bundle in the current directory
-            current_dir = Path.cwd()
+            # Find the app bundle - check multiple locations
+            # 1. Try bundled resources directory (PyInstaller)
+            if getattr(sys, '_MEIPASS', None):
+                base_dir = Path(sys._MEIPASS)
+            else:
+                # 2. Try directory where installer is located
+                base_dir = Path(__file__).parent.absolute()
+            
             app_bundle = None
             
-            # Look for .app bundle
-            for item in current_dir.iterdir():
-                if item.is_dir() and item.suffix == ".app":
+            # Look for .app bundle in base directory
+            for item in base_dir.iterdir():
+                if item.is_dir() and item.suffix == ".app" and self.app_name in item.name:
                     app_bundle = item
                     break
             
+            # If not found, try current working directory as fallback
             if not app_bundle:
-                self.update_progress(30, "❌ Application bundle not found")
+                for item in Path.cwd().iterdir():
+                    if item.is_dir() and item.suffix == ".app" and self.app_name in item.name:
+                        app_bundle = item
+                        break
+            
+            if not app_bundle:
+                self.update_progress(30, f"❌ Application bundle not found in {base_dir}")
                 return False
             
             # Remove existing app from Desktop if it exists
