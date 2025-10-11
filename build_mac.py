@@ -216,77 +216,20 @@ class SimpleMacBuilder:
             self._log_progress(f"Error customizing Info.plist: {e}", "ERROR")
             return False
     
-    def build_installer_app(self) -> bool:
-        """Build installer application (lightweight - main app will be bundled separately)"""
-        self._log_progress("Building installer application", "Installer")
-        
-        # Installer is minimal - only needs GUI and basic system checks
-        # Main app (with all dependencies) will be bundled inside it later
-        cmd = [
-            sys.executable, "-m", "PyInstaller",
-            "--clean",
-            "--noconfirm",
-            "--windowed",  # Creates native macOS .app bundle
-            "--onedir",
-            "--name", self.installer_name,
-            "--osx-bundle-identifier", "com.physioclinic.installer",
-            "--add-data", "VERSION:.",
-            # Only include minimal files needed for installer GUI
-            "--hidden-import", "tkinter",
-            "--hidden-import", "tkinter.ttk",
-            "--hidden-import", "tkinter.messagebox",
-            "--hidden-import", "tkinter.filedialog",
-            "--hidden-import", "platform",
-            "--hidden-import", "shutil",
-            "--hidden-import", "pathlib",
-            "mac_installer.py"
-        ]
-        
-        if not self._run_with_timeout(cmd, timeout=600, description="PyInstaller installer"):
-            return False
-        
-        # Customize Info.plist
-        return self._customize_app_bundle(self.installer_name)
+    # Installer removed - using standard macOS drag-to-Applications approach
     
     
-    def bundle_app_into_installer(self) -> bool:
-        """Bundle the main app inside the installer (must happen BEFORE signing)"""
-        self._log_progress("Bundling main app into installer", "Bundling")
+    # Bundling step removed - main app goes directly in DMG
+    
+    def create_dmg(self) -> bool:
+        """Create DMG with main app (standard macOS distribution)"""
+        self._log_progress("Creating DMG", "DMG Creation")
         
-        installer_app = self.dist_dir / f"{self.installer_name}.app"
+        # Use main app directly (no installer wrapper)
         main_app = self.dist_dir / f"{self.app_name}.app"
-        
-        if not installer_app.exists():
-            self._log_progress("Installer app not found", "ERROR")
-            return False
         
         if not main_app.exists():
             self._log_progress("Main app not found", "ERROR")
-            return False
-        
-        # Copy main app into installer's Resources directory
-        installer_resources = installer_app / "Contents" / "Resources"
-        bundled_app_path = installer_resources / f"{self.app_name}.app"
-        
-        # Remove if it already exists (from previous build)
-        if bundled_app_path.exists():
-            shutil.rmtree(bundled_app_path)
-        
-        self._log_progress(f"Copying {self.app_name}.app into installer...")
-        shutil.copytree(main_app, bundled_app_path)
-        self._log_progress(f"✅ Main app bundled into installer successfully")
-        
-        return True
-    
-    def create_dmg(self) -> bool:
-        """Create DMG installer"""
-        self._log_progress("Creating DMG installer", "DMG Creation")
-        
-        # Installer should already have main app bundled at this point
-        installer_app = self.dist_dir / f"{self.installer_name}.app"
-        
-        if not installer_app.exists():
-            self._log_progress("Installer app not found", "ERROR")
             return False
         
         # Create DMG contents
@@ -294,26 +237,30 @@ class SimpleMacBuilder:
             shutil.rmtree(self.dmg_dir)
         self.dmg_dir.mkdir()
         
-        # Copy installer app (now containing main app) to DMG
-        installer_dst = self.dmg_dir / f"{self.installer_name}.app"
-        shutil.copytree(installer_app, installer_dst)
+        # Copy main app to DMG
+        app_dst = self.dmg_dir / f"{self.app_name}.app"
+        shutil.copytree(main_app, app_dst)
         
         # Create Applications symlink
         applications_link = self.dmg_dir / "Applications"
         applications_link.symlink_to("/Applications")
         
         # Create README
-        readme_content = f"""Physiotherapy Clinic Assistant - Installer
+        readme_content = f"""Physiotherapy Clinic Assistant
 
 Version {self.version}
 
-To install:
-1. Double-click the installer app
-2. Follow the installation wizard
-3. Drag the app to Applications folder
+INSTALLATION:
+1. Drag PhysioClinicAssistant.app to the Applications folder
+2. Launch from Applications
+3. Complete the setup wizard on first run
 
-IMPORTANT: On first run, the app will download AI models (~4.3GB).
-This ensures you always have the latest models and keeps the installer small.
+FIRST RUN SETUP:
+On first launch, the app will:
+- Check system requirements
+- Download AI models (~4.3GB) - this is a one-time download
+- Configure your microphone
+- Set up secure authentication
 
 System Requirements:
 • macOS 10.15+ (Catalina or later)
@@ -333,7 +280,7 @@ For support, visit: https://physioclinic.com/support
         time.sleep(2)
         
         # Detach any existing DMG mounts
-        subprocess.run(["hdiutil", "detach", "/Volumes/PhysioClinicAssistant Installer"], 
+        subprocess.run(["hdiutil", "detach", "/Volumes/PhysioClinicAssistant"], 
                       capture_output=True, check=False)
         
         # Create DMG using hdiutil (more reliable than create-dmg)
@@ -348,7 +295,7 @@ For support, visit: https://physioclinic.com/support
         for attempt in range(max_retries):
             cmd = [
                 "hdiutil", "create", "-srcfolder", str(self.dmg_dir),
-                "-volname", "PhysioClinicAssistant Installer",
+                "-volname", "PhysioClinicAssistant",
                 "-fs", "HFS+",
                 "-ov",  # Overwrite if exists
                 temp_dmg
@@ -470,44 +417,25 @@ For support, visit: https://physioclinic.com/support
         return True
     
     def sign_applications(self) -> bool:
-        """Sign both main app and installer app (installer must already have main app bundled)"""
-        self._log_progress("Signing applications", "Code Signing")
+        """Sign main application"""
+        self._log_progress("Signing application", "Code Signing")
         
-        # Sign main app first (it's bundled inside installer, but we sign it standalone too)
+        # Sign main app only (no installer)
         main_app_path = self.dist_dir / f"{self.app_name}.app"
         if main_app_path.exists():
             if not self.sign_app(main_app_path):
                 return False
         
-        # Sign the bundled main app inside installer
-        installer_app_path = self.dist_dir / f"{self.installer_name}.app"
-        bundled_main_app = installer_app_path / "Contents" / "Resources" / f"{self.app_name}.app"
-        if bundled_main_app.exists():
-            self._log_progress("Signing bundled app inside installer...")
-            if not self.sign_app(bundled_main_app):
-                return False
-        
-        # Sign installer app last (after its contents are signed)
-        if installer_app_path.exists():
-            if not self.sign_app(installer_app_path):
-                return False
-        
         return True
     
     def notarize_applications(self) -> bool:
-        """Notarize both main app and installer app"""
-        self._log_progress("Notarizing applications", "Notarization")
+        """Notarize main application"""
+        self._log_progress("Notarizing application", "Notarization")
         
-        # Notarize main app
+        # Notarize main app only
         main_app_path = self.dist_dir / f"{self.app_name}.app"
         if main_app_path.exists():
             if not self.notarize_app(main_app_path):
-                return False
-        
-        # Notarize installer app
-        installer_app_path = self.dist_dir / f"{self.installer_name}.app"
-        if installer_app_path.exists():
-            if not self.notarize_app(installer_app_path):
                 return False
         
         return True
@@ -520,11 +448,9 @@ For support, visit: https://physioclinic.com/support
         build_steps = [
             ("Clean Build Directories", self.clean_build_dirs),
             ("Build Main Application", self.build_main_app),
-            ("Build Installer Application", self.build_installer_app),
-            ("Bundle App into Installer", self.bundle_app_into_installer),  # Must be before signing!
-            ("Sign Applications", self.sign_applications),
-            ("Notarize Applications", self.notarize_applications),
-            ("Create DMG Installer", self.create_dmg),
+            ("Sign Application", self.sign_applications),
+            ("Notarize Application", self.notarize_applications),
+            ("Create DMG", self.create_dmg),
             ("Cleanup", self.cleanup),
         ]
         
