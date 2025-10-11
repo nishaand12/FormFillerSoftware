@@ -36,7 +36,7 @@ class SimpleMacBuilder:
         
         # Progress tracking
         self.current_step = 0
-        self.total_steps = 6  # Streamlined with native PyInstaller bundles
+        self.total_steps = 6  # Streamlined: clean, build, sign, notarize, dmg, cleanup
         self.start_time = time.time()
         
     def _get_version(self) -> str:
@@ -127,9 +127,73 @@ class SimpleMacBuilder:
         
         return True
     
+    def _prepare_app_icon(self) -> Optional[str]:
+        """Prepare application icon, converting PNG to ICNS if needed"""
+        try:
+            # Check if logo.png exists in static directory
+            logo_png = Path("static/logo.png")
+            if not logo_png.exists():
+                self._log_progress("Logo file not found at static/logo.png", "WARNING")
+                return None
+            
+            # Output path for ICNS file
+            icns_path = Path("static/logo.icns")
+            
+            # Convert PNG to ICNS using sips (built-in macOS tool)
+            # Create an iconset directory
+            iconset_dir = Path("static/logo.iconset")
+            if iconset_dir.exists():
+                shutil.rmtree(iconset_dir)
+            iconset_dir.mkdir(parents=True)
+            
+            # Generate different icon sizes
+            icon_sizes = [
+                (16, "16x16"),
+                (32, "16x16@2x"),
+                (32, "32x32"),
+                (64, "32x32@2x"),
+                (128, "128x128"),
+                (256, "128x128@2x"),
+                (256, "256x256"),
+                (512, "256x256@2x"),
+                (512, "512x512"),
+                (1024, "512x512@2x"),
+            ]
+            
+            # Use sips to resize PNG to different sizes
+            for size, name in icon_sizes:
+                output_file = iconset_dir / f"icon_{name}.png"
+                subprocess.run([
+                    "sips", "-z", str(size), str(size), 
+                    str(logo_png), "--out", str(output_file)
+                ], capture_output=True, check=False)
+            
+            # Convert iconset to icns
+            subprocess.run([
+                "iconutil", "-c", "icns", str(iconset_dir), "-o", str(icns_path)
+            ], capture_output=True, check=False)
+            
+            # Clean up iconset directory
+            if iconset_dir.exists():
+                shutil.rmtree(iconset_dir)
+            
+            if icns_path.exists():
+                self._log_progress(f"Icon prepared: {icns_path}")
+                return str(icns_path)
+            else:
+                self._log_progress("Failed to create ICNS file", "WARNING")
+                return None
+                
+        except Exception as e:
+            self._log_progress(f"Error preparing icon: {e}", "WARNING")
+            return None
+    
     def build_main_app(self) -> bool:
         """Build main application using PyInstaller with proper macOS bundle"""
         self._log_progress("Building main application", "Main App")
+        
+        # Prepare icon path - convert PNG to ICNS if needed
+        icon_path = self._prepare_app_icon()
         
         cmd = [
             sys.executable, "-m", "PyInstaller",
@@ -139,17 +203,31 @@ class SimpleMacBuilder:
             "--onedir",    # Use onedir for better compatibility
             "--name", self.app_name,
             "--osx-bundle-identifier", "com.physioclinic.assistant",
+        ]
+        
+        # Add icon if available
+        if icon_path:
+            cmd.extend(["--icon", icon_path])
+        
+        # Add data files
+        cmd.extend([
             "--add-data", "config:config",
             "--add-data", "forms:forms",
             "--add-data", "auth:auth",
+            "--add-data", "static:static",  # Include static directory with logo
             # "--add-data", "models:models",  # Exclude models - download separately
             "--add-data", "setup_wizard.py:.",
             "--add-data", "system_checker.py:.",
             "--add-data", "config_validator.py:.",
             "--add-data", "uninstaller.py:.",
+            "--add-data", "main.py:.",  # Include main.py as a resource
             "--add-data", "VERSION:.",
             "--add-data", "README.md:.",
             "--add-data", "requirements.txt:.",
+        ])
+        
+        # Add hidden imports
+        cmd.extend([
             "--hidden-import", "tkinter",
             "--hidden-import", "tkinter.ttk",
             "--hidden-import", "tkinter.messagebox",
@@ -167,8 +245,10 @@ class SimpleMacBuilder:
             "--hidden-import", "reportlab",
             "--hidden-import", "sounddevice",
             "--hidden-import", "sqlite3",
-            "main.py"
-        ]
+        ])
+        
+        # Use run_app.py as entry point for better multiprocessing cleanup
+        cmd.append("run_app.py")
         
         if not self._run_with_timeout(cmd, timeout=1200, description="PyInstaller main app"):
             return False
@@ -198,22 +278,84 @@ class SimpleMacBuilder:
             with open(info_plist_path, 'rb') as f:
                 plist_data = plistlib.load(f)
             
-            # Add/update required keys
+            # Add/update required keys for functionality
             plist_data['NSMicrophoneUsageDescription'] = "This app needs microphone access to record patient appointments."
             plist_data['NSAudioRecorderUsageDescription'] = "This app needs audio recording access to record patient appointments."
             plist_data['NSHighResolutionCapable'] = True
             plist_data['LSMinimumSystemVersion'] = "10.15.0"
-            plist_data['CFBundleDisplayName'] = app_name
+            
+            # Set display name to match what users see in the app
+            plist_data['CFBundleDisplayName'] = "Physio Clinic Assistant"
+            plist_data['CFBundleName'] = "Physio Clinic Assistant"
+            
+            # Set icon file if it exists
+            resources_dir = app_path / "Contents" / "Resources"
+            icon_file = resources_dir / "logo.icns"
+            
+            # PyInstaller should have copied the icon, but verify
+            if icon_file.exists():
+                plist_data['CFBundleIconFile'] = "logo.icns"
+                self._log_progress("Icon file configured in Info.plist")
+            else:
+                # Check if PyInstaller used a different name
+                possible_icons = list(resources_dir.glob("*.icns"))
+                if possible_icons:
+                    icon_name = possible_icons[0].name
+                    plist_data['CFBundleIconFile'] = icon_name
+                    self._log_progress(f"Icon file configured: {icon_name}")
+                else:
+                    self._log_progress("No icon file found in Resources", "WARNING")
+            
+            # Set LSApplicationCategoryType for proper categorization
+            plist_data['LSApplicationCategoryType'] = "public.app-category.medical"
+            
+            # Ensure the app doesn't appear as a document-based app
+            plist_data['LSUIElement'] = False
+            
+            # Set proper execution permissions
+            plist_data['NSAppleEventsUsageDescription'] = "This app needs to access other applications for file operations."
             
             # Write back the modified plist
             with open(info_plist_path, 'wb') as f:
                 plistlib.dump(plist_data, f)
             
             self._log_progress(f"Customized {app_name}.app Info.plist")
+            
+            # Set proper executable permissions on the main executable
+            if not self._set_app_permissions(app_path):
+                return False
+            
             return True
             
         except Exception as e:
             self._log_progress(f"Error customizing Info.plist: {e}", "ERROR")
+            return False
+    
+    def _set_app_permissions(self, app_path: Path) -> bool:
+        """Set proper executable permissions on the app bundle"""
+        try:
+            # Find the main executable
+            macos_dir = app_path / "Contents" / "MacOS"
+            if not macos_dir.exists():
+                self._log_progress("MacOS directory not found", "ERROR")
+                return False
+            
+            # Get all executables in MacOS directory
+            executables = list(macos_dir.iterdir())
+            if not executables:
+                self._log_progress("No executables found in MacOS directory", "ERROR")
+                return False
+            
+            # Set executable permissions on all files in MacOS directory
+            for executable in executables:
+                if executable.is_file():
+                    os.chmod(executable, 0o755)
+                    self._log_progress(f"Set executable permissions on {executable.name}")
+            
+            return True
+            
+        except Exception as e:
+            self._log_progress(f"Error setting app permissions: {e}", "ERROR")
             return False
     
     # Installer removed - using standard macOS drag-to-Applications approach
@@ -245,31 +387,66 @@ class SimpleMacBuilder:
         applications_link = self.dmg_dir / "Applications"
         applications_link.symlink_to("/Applications")
         
-        # Create README
+        # Create README with comprehensive first-run instructions
         readme_content = f"""Physiotherapy Clinic Assistant
 
 Version {self.version}
 
-INSTALLATION:
-1. Drag PhysioClinicAssistant.app to the Applications folder
-2. Launch from Applications
-3. Complete the setup wizard on first run
+INSTALLATION INSTRUCTIONS:
+1. Drag "PhysioClinicAssistant.app" to the Applications folder (or any location)
+2. Navigate to where you installed the app
+3. Right-click (or Control-click) on "PhysioClinicAssistant.app"
+4. Select "Open" from the menu
+5. Click "Open" in the security dialog that appears
+
+IMPORTANT - FIRST LAUNCH:
+The first time you open the app, macOS Gatekeeper will show a security warning.
+This is normal for apps downloaded from the internet.
+
+To open the app:
+→ Right-click on the app and select "Open" (DO NOT double-click on first launch)
+→ Click "Open" in the dialog that appears
+→ After the first successful launch, you can open the app normally
+
+If the app doesn't open or shows "damaged" error:
+1. Open Terminal (Applications > Utilities > Terminal)
+2. Type: xattr -cr /Applications/PhysioClinicAssistant.app
+3. Press Enter and try opening the app again
 
 FIRST RUN SETUP:
 On first launch, the app will:
-- Check system requirements
-- Download AI models (~4.3GB) - this is a one-time download
-- Configure your microphone
-- Set up secure authentication
+✓ Check system requirements
+✓ Download AI models (~4.3GB) - this is a one-time download
+✓ Configure your microphone
+✓ Set up secure authentication
 
-System Requirements:
+This initial setup may take 10-15 minutes depending on your internet connection.
+
+SYSTEM REQUIREMENTS:
 • macOS 10.15+ (Catalina or later)
 • 8GB RAM minimum (16GB recommended)
-• 10GB free disk space (plus 4.3GB for models)
+• 10GB free disk space (plus 4.3GB for AI models)
 • Microphone access
 • Internet connection (for initial setup and model download)
 
-For support, visit: https://physioclinic.com/support
+PERMISSIONS:
+The app will request permission to:
+• Access your microphone (for recording appointments)
+• Access files (for saving appointments and forms)
+
+These permissions are required for the app to function properly.
+
+TROUBLESHOOTING:
+- If the app crashes on launch, ensure you have enough disk space
+- If models fail to download, check your internet connection
+- If you see "App is damaged" error, use the Terminal command above
+- For persistent issues, try moving the app to /Applications folder
+
+For support and documentation:
+Email: support@physioclinic.com
+Website: https://physioclinic.com/support
+
+Thank you for using Physio Clinic Assistant!
 """
         
         with open(self.dmg_dir / "README.txt", 'w') as f:
@@ -347,6 +524,18 @@ For support, visit: https://physioclinic.com/support
         # Clean spec files
         for spec_file in Path('.').glob('*.spec'):
             spec_file.unlink()
+        
+        # Clean up temporary icon files
+        icon_files = [
+            Path("static/logo.icns"),
+            Path("static/logo.iconset")
+        ]
+        for icon_file in icon_files:
+            if icon_file.exists():
+                if icon_file.is_dir():
+                    shutil.rmtree(icon_file)
+                else:
+                    icon_file.unlink()
         
         return True
     
