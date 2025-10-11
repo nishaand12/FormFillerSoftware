@@ -55,10 +55,10 @@ Thumbs.db
 config/supabase_config.json
 encryption_keys.json
 
-# Keep docs/downloads/ but ignore other downloads
+# Keep docs/downloads/ but ignore DMG files (too large - use GitHub Releases instead)
 downloads/
 !docs/downloads/
-!docs/downloads/*.dmg
+docs/downloads/*.dmg
 
 # Models (too large for git)
 models/
