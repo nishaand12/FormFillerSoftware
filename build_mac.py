@@ -258,20 +258,38 @@ class SimpleMacBuilder:
         """Create DMG installer"""
         self._log_progress("Creating DMG installer", "DMG Creation")
         
+        # First, bundle the main app inside the installer
+        installer_app = self.dist_dir / f"{self.installer_name}.app"
+        main_app = self.dist_dir / f"{self.app_name}.app"
+        
+        if not installer_app.exists():
+            self._log_progress("Installer app not found", "ERROR")
+            return False
+        
+        if not main_app.exists():
+            self._log_progress("Main app not found", "ERROR")
+            return False
+        
+        # Copy main app into installer's Resources directory
+        installer_resources = installer_app / "Contents" / "Resources"
+        bundled_app_path = installer_resources / f"{self.app_name}.app"
+        
+        # Remove if it already exists (from previous build)
+        if bundled_app_path.exists():
+            shutil.rmtree(bundled_app_path)
+        
+        self._log_progress(f"Bundling {self.app_name}.app into installer...")
+        shutil.copytree(main_app, bundled_app_path)
+        self._log_progress(f"✅ Main app bundled into installer")
+        
         # Create DMG contents
         if self.dmg_dir.exists():
             shutil.rmtree(self.dmg_dir)
         self.dmg_dir.mkdir()
         
-        # Copy installer app
-        installer_src = self.dist_dir / f"{self.installer_name}.app"
+        # Copy installer app (now containing main app) to DMG
         installer_dst = self.dmg_dir / f"{self.installer_name}.app"
-        
-        if not installer_src.exists():
-            self._log_progress("Installer app not found", "ERROR")
-            return False
-        
-        shutil.copytree(installer_src, installer_dst)
+        shutil.copytree(installer_app, installer_dst)
         
         # Create Applications symlink
         applications_link = self.dmg_dir / "Applications"

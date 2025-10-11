@@ -470,31 +470,44 @@ This process typically takes 2-3 minutes.
     def install_app_bundle(self) -> bool:
         """Place the application bundle on Desktop for user to drag"""
         try:
-            # Find the app bundle - check multiple locations
-            # 1. Try bundled resources directory (PyInstaller)
-            if getattr(sys, '_MEIPASS', None):
-                base_dir = Path(sys._MEIPASS)
-            else:
-                # 2. Try directory where installer is located
-                base_dir = Path(__file__).parent.absolute()
-            
+            # Find the app bundle - it should be bundled in the installer's Resources
             app_bundle = None
             
-            # Look for .app bundle in base directory
-            for item in base_dir.iterdir():
-                if item.is_dir() and item.suffix == ".app" and self.app_name in item.name:
-                    app_bundle = item
-                    break
+            # 1. Check PyInstaller bundle directory (_MEIPASS)
+            if getattr(sys, '_MEIPASS', None):
+                base_dir = Path(sys._MEIPASS)
+                app_bundle = base_dir / f"{self.app_name}.app"
+                if app_bundle.exists():
+                    self.update_install_progress(20, f"✅ Found app in PyInstaller bundle: {app_bundle}")
+                else:
+                    app_bundle = None
             
-            # If not found, try current working directory as fallback
-            if not app_bundle:
-                for item in Path.cwd().iterdir():
-                    if item.is_dir() and item.suffix == ".app" and self.app_name in item.name:
-                        app_bundle = item
+            # 2. Check relative to installer .app bundle (Contents/Resources/)
+            if not app_bundle or not app_bundle.exists():
+                # Get the installer's bundle path
+                installer_path = Path(__file__).resolve()
+                # Go up to Contents/Resources/
+                possible_bundle = installer_path.parent / f"{self.app_name}.app"
+                if possible_bundle.exists():
+                    app_bundle = possible_bundle
+                    self.update_install_progress(20, f"✅ Found app next to installer: {app_bundle}")
+                else:
+                    app_bundle = None
+            
+            # 3. Search in current directory and parent directories
+            if not app_bundle or not app_bundle.exists():
+                search_dirs = [Path.cwd(), Path(__file__).parent.absolute()]
+                for search_dir in search_dirs:
+                    for item in search_dir.iterdir():
+                        if item.is_dir() and item.suffix == ".app" and self.app_name in item.name and "Installer" not in item.name:
+                            app_bundle = item
+                            self.update_install_progress(20, f"✅ Found app in {search_dir}: {app_bundle}")
+                            break
+                    if app_bundle and app_bundle.exists():
                         break
             
-            if not app_bundle:
-                self.update_progress(30, f"❌ Application bundle not found in {base_dir}")
+            if not app_bundle or not app_bundle.exists():
+                self.update_install_progress(30, f"❌ Application bundle not found. Searched in multiple locations.")
                 return False
             
             # Remove existing app from Desktop if it exists
