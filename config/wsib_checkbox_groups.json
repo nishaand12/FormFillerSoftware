@@ -1,0 +1,106 @@
+{
+    "radio_button_groups": {
+        "walking_ability": [
+            "walking_ability_full",
+            "walking_ability_<100_meters", 
+            "walking_ability_100_to_200_meters",
+            "walking_ability_other"
+        ],
+        "standing_ability": [
+            "standing_ability_full",
+            "standing_ability_<14_minutes",
+            "standing_ability_15_to_30_minutes", 
+            "standing_ability_other"
+        ],
+        "sitting_ability": [
+            "sitting_ability_full",
+            "sitting_ability_<30_minutes",
+            "sitting_ability_30_to_60_minutes",
+            "sitting_ability_other"
+        ],
+        "lifting_floor_to_waist_ability": [
+            "lifting_floor_to_waist_full_ability",
+            "lifting_floor_to_waist_<5kg",
+            "lifting_floor_to_waist_5_to_10kg",
+            "lifting_floor_to_waist_other"
+        ],
+        "lifting_waist_to_shoulder_ability": [
+            "lifting_waist_to_shoulder_full_ability",
+            "lifting_waist_to_shoulder_<5kg",
+            "lifting_waist_to_shoulder_5_to_10kg",
+            "lifting_waist_to_shoulder_other"
+        ],
+        "stair_climbing_ability": [
+            "stair_climbing_ability_full",
+            "stair_climbing_ability_<5_steps",
+            "stair_climbing_ability_5_to_10_steps",
+            "stair_climbing_ability_other"
+        ],
+        "ladder_climbing_ability": [
+            "ladder_climbing_full_ability",
+            "ladder_climbing_1_to_3_steps",
+            "ladder_climbing_4_to_6_steps",
+            "ladder_climbing_other"
+        ]
+    },
+    "multiple_choice_fields": {
+    "health_professional_designation": {
+      "field_name": "cbChealthdes1",
+      "options": ["CHIROPRACTOR", "PHYSICIAN", "PHYSIO", "REGISTERED NURSE", "OTHER"]
+    },
+    "return_to_work_capability": {
+      "field_name": "CBQ21", 
+      "options": ["RTWNORESTRICTION", "RTWWITHRESTRICTION", "NORTW"]
+    },
+    "recommendation_for_work_hours": {
+        "field_name": "cbE6workhoursstartdate",
+        "options": ["reg full time hours", "modified hours", "graduated hours"]
+    },
+    "restriction_duration": {
+        "field_name": "cbE4howlong",
+        "options": ["1-2 days", "3-7 days", "8-14 days", "14 + days"]
+    },
+    "ability_to_use_public_transit": {
+        "field_name": "cbEabilitytousepublictransit1",
+        "options": ["yes", "no"]
+    },
+    "ability_to_drive_a_car": {
+        "field_name": "cbE1abilitytodrivecar1",
+        "options": ["yes", "no"]
+    },
+    "discussed_return_to_work_with_worker": {
+        "field_name": "cbE5discussedrtw",
+        "options": ["yes", "no"]
+    },
+    "discussed_return_to_work_with_employer": {
+        "field_name": "cb2discussedrtw",
+        "options": ["yes", "no"]
+    },
+    "health_professional_wsib_registered": {
+        "field_name": "cbcareyouregistered1",
+        "options": ["yes", "no"]
+    }
+    },
+    "yes_no_fields": [
+        "cbE2restrictionshands",
+        "cbE2restrictionshandsgrippingleft",
+        "cbE2restrictionshandsgrippingright",
+        "cbE2restrictionshandspinchingleft",
+        "cbE2restrictionshandspinchingright",
+        "cbE2restrictionshandsotherleft",
+        "cbE2restrictionshandsotherright",
+        "cbE2restrictionsbending",
+        "cbE2restrictionsaboveshoulder",
+        "cbE2restrictionschemical",
+        "cbE2restrictionsenvironmental",
+        "cbE2restrictionspushing",
+        "cbE2restrictionspushingleftarm",
+        "cbE2restrictionspushingrightarm",
+        "cbE2restrictionspushingother",
+        "cbE2restrictionsoperatingequipment",
+        "cbE2restrictionssideeffects",
+        "cbE2restrictionsvibration",
+        "cbE2restrictionsvibrationwholebody",
+        "cbE2restrictionsvibrationhandarm"
+    ]
+}

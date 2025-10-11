@@ -1,0 +1,140 @@
+{
+  "yes_no_fields": [
+    "same_as_applicant",
+    "other_insurance_exists",
+    "moh_exists",
+    "health_provider_question_1",
+    "health_provider_question_2",
+    "professional_question_1",
+    "attach_p6",
+    "part9_a1_1_pain_reduction",
+    "part9_a1_2_increased_range_of_motion",
+    "part9_a1_3_increase_in_strength",
+    "part9_a1_4_other",
+    "part9_a2_1_return_to_activities_of_normal_living",
+    "part9_a2_2_return_to_modified_work_activities",
+    "part9_a2_3_return_to_pre_accident_work_activities",
+    "part9_a2_4_other"
+  ],
+  "three_option_fields": {
+    "part7_a_checkbox": {
+      "field_name": "Part7-a",
+      "options": ["no", "unknown", "yes"],
+      "conditional_fields": ["part7_a_please_explain"]
+    },
+    "part7_a2_checkbox": {
+      "field_name": "Part7-a2", 
+      "options": ["no", "unknown", "yes"],
+      "conditional_fields": ["part7_a1_please_explain"]
+    },
+    "part7_b_checkbox": {
+      "field_name": "Part7-b",
+      "options": ["no", "unknown", "yes"],
+      "conditional_fields": ["part7_b_please_explain"]
+    },
+    "part8_act_checkbox": {
+      "field_name": "Part8_Act",
+      "options": ["no", "unknown", "yes"],
+      "conditional_fields": ["part8_b_please_explain"]
+    }
+  },
+  "four_option_fields": {
+    "part8_task_checkbox": {
+      "field_name": "Part8_Task",
+      "options": ["not_employed", "no", "unknown", "yes"],
+      "conditional_fields": ["part8_b_please_explain"]
+    },
+    "part8_c_checkbox": {
+      "field_name": "Part8_c",
+      "options": ["not_employed", "yes", "unknown", "no"],
+      "conditional_fields": ["part8_c_please_explain"]
+    }
+  },
+  "radio_button_groups": {
+    "patient_gender": [
+      "patient_gender"
+    ],
+    "part9i_goals": {
+      "field_name": "Part9_a1",
+      "options": ["pain_reduction", "increased_range_of_motion", "increase_in_strength", "other"],
+      "conditional_fields": ["part9i_other_please_specify"]
+    },
+    "part9ii_function_goals": {
+      "field_name": "Part9_a2", 
+      "options": ["return_to_activities_of_normal_living", "return_to_pre_accident_work_activities", "return_to_modified_work_activities", "other"],
+      "conditional_fields": ["part9_a2_please_specify"]
+    }
+  },
+  "text_fields": [
+    "part7_a_please_explain",
+    "part7_a1_please_explain", 
+    "part7_b_please_explain",
+    "part8_b_please_explain",
+    "part8_c_please_explain",
+    "part9i_other_please_specify",
+    "part9_a2_please_specify",
+    "part9_b1",
+    "part9_b2",
+    "part9_c1_please_explain",
+    "part9_c2_please_explain",
+    "part9_d_please_explain"
+  ],
+  "conditional_logic": {
+    "other_insurance_exists": {
+      "if_true": [
+        "other_insurance_1_name",
+        "other_insurance_1_plan",
+        "other_insurance_1_policy_member",
+        "other_insurance_1_id",
+        "other_insurance_2_name",
+        "other_insurance_2_plan",
+        "other_insurance_2_policy_member",
+        "other_insurance_2_id"
+      ]
+    },
+    "same_as_applicant": {
+      "if_true": [],
+      "if_false": [
+        "policy_holder_last_name",
+        "policy_holder_first_name"
+      ]
+    },
+    "part7_a_checkbox": {
+      "if_yes": ["part7_a_please_explain"]
+    },
+    "part7_a2_checkbox": {
+      "if_yes": ["part7_a1_please_explain"]
+    },
+    "part7_b_checkbox": {
+      "if_yes": ["part7_b_please_explain"]
+    },
+    "part8_task_checkbox": {
+      "if_yes": ["part8_b_please_explain"]
+    },
+    "part8_act_checkbox": {
+      "if_yes": ["part8_b_please_explain"]
+    },
+    "part8_c_checkbox": {
+      "if_no": ["part8_c_please_explain"]
+    },
+    "part9i_goals": {
+      "if_other": ["part9i_other_please_specify"],
+      "if_not_other": ["part9_a2_please_specify"]
+    },
+    "part9ii_function_goals": {
+      "if_other": ["part9_a2_please_specify"]
+    },
+    "part9_c1_checkbox": {
+      "if_yes": ["part9_c1_please_explain"]
+    },
+    "part9_c2_checkbox": {
+      "if_yes": ["part9_c2_please_explain"]
+    },
+    "part9_d_checkbox": {
+      "if_yes": ["part9_d_please_explain"]
+    },
+    "attach_p6": {
+      "if_true": ["how_many_p6"]
+    }
+  }
+}

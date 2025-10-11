@@ -1,0 +1,66 @@
+{
+  "field_types": {
+    "form_return": "text",
+    "form_date": "text",
+
+    "provider_initiating": "text",
+    "provider_college": "text",
+    "provider_facility": "text",
+    "provider_address": "text",
+    "provider_city": "text",
+    "provider_province": "text",
+    "provider_postal_code": "text",
+    "provider_phone": "text",
+    "provider_extension": "text",
+    "provider_fax": "text",
+    "provider_email": "text",
+    "provider_health_number": "text",
+    "provider_date": "text",
+    "provider_fsco_license": "text",
+    "provider_aisi": "text",
+    "provider_check1": "checkbox",
+
+    "provider_designation_physician": "radio_group",
+    "provider_designation_physio": "radio_group",
+    "provider_designation_chiro": "radio_group",
+    "provider_designation_dentist": "radio_group",
+    "provider_designation_nurse": "radio_group",
+    "provider_designation_occup": "radio_group",
+
+    "injury_sequelae_1_diagnosis": "text",
+    "injury_sequelae_2_diagnosis": "text",
+    "injury_sequelae_3_diagnosis": "text",
+    "injury_sequelae_4_diagnosis": "text",
+
+    "part6_employed_at_accident": "checkbox",
+    "part6_prior_conditions": "three_option",
+    "part6_prior_conditions_explanation": "text",
+    "part6_past_year_treatment": "three_option",
+    "part6_past_year_treatment_explanation": "text",
+
+    "part7_barriers_to_recovery": "checkbox",
+    "part7_barriers_explanation": "text",
+
+    "accident_patient_name": "text",
+    "accident_date": "text",
+    "accident_description": "text",
+    "accident_diagnosis_1": "text",
+    "accident_mechanism_1": "text",
+    "accident_etiology_1": "text",
+    "accident_diagnosis_2": "text",
+    "accident_mechanism_2": "text",
+    "accident_etiology_2": "text",
+    "accident_diagnosis_3": "text",
+    "accident_mechanism_3": "text",
+    "accident_etiology_3": "text",
+    "accident_mechanism_4": "text",
+    "accident_subsequent": "text",
+
+    "part9_supplementary_goods_services": "text",
+    "part9_other_preapproved_services": "text",
+
+    "guideline_services_required": "checkbox",
+    "guideline_services_how": "text"
+  },
+  "notes": "Simplified field types for OCF-23 form focusing on Parts 4, 5, 6, 7, and 10. Provider info (Part 4) filled from stored data, others extracted from transcript."
+}

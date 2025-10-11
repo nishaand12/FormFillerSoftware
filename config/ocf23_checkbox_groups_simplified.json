@@ -1,0 +1,34 @@
+{
+  "yes_no_fields": [
+    "provider_check1",
+    "guideline_services_required"
+  ],
+  "radio_button_groups": {
+    "provider_designation": [
+      "provider_designation_physician",
+      "provider_designation_physio",
+      "provider_designation_chiro",
+      "provider_designation_dentist",
+      "provider_designation_nurse",
+      "provider_designation_occup"
+    ]
+  },
+  "multiple_choice_fields": {
+    "part6_employed_at_accident": {
+      "field_name": "p6",
+      "options": ["yes", "no"]
+    },
+    "part6_prior_conditions": {
+      "field_name": "P6b",
+      "options": ["no", "unknown", "yes"]
+    },
+    "part6_past_year_treatment": {
+      "field_name": "P6c",
+      "options": ["no", "unknown", "yes"]
+    },
+    "part7_barriers_to_recovery": {
+      "field_name": "p7a",
+      "options": ["no", "yes"]
+    }
+  }
+}

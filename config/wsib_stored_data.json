@@ -1,0 +1,24 @@
+{
+    "health_professional_info": {
+        "health_professional_designation": "PHYSIO",
+        "health_professional_name": "Jasmin E",
+        "health_professional_address": "123 Physio Dr",
+        "health_professional_city": "Toronto",
+        "health_professional_province": "ON",
+        "health_professional_postal_code": "M4B 1B1",
+        "health_professional_area_code": "416",
+        "health_professional_phone_number": "123-4567",
+        "health_professional_fax_area_code": "416",
+        "health_professional_fax_number": "123-4567",
+        "health_professional_wsib_registered": "yes",
+        "wsib_provider_id": "1234567890",
+        "health_professional_hst_registration_number": "1234567890"
+    },
+    "clinic_info": {
+        "clinic_name": "ABC Physiotherapy Clinic",
+        "clinic_address": "456 Health Street",
+        "clinic_city": "Toronto",
+        "clinic_province": "ON",
+        "clinic_postal_code": "M5V 3B9"
+    }
+}

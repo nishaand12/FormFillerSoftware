@@ -1,0 +1,21 @@
+# Distribution repository .gitignore
+# Only ignore what we don't want in the distribution repo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Keep downloads/ directory and all DMG files
+!downloads/
+!downloads/*.dmg

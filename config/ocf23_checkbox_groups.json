@@ -1,0 +1,64 @@
+{
+  "yes_no_fields": [
+    "insurer_same_as_part1",
+    "other_insurance_moh",
+    "provider_check1",
+    "part8_checked",
+    "part11_checked",
+    "part1_checked",
+    "part3_checked"
+  ],
+  "three_option_fields": {
+    "part6_prior_conditions": {
+      "field_name": "P6b",
+      "options": ["no", "unknown", "yes"],
+      "conditional_fields": ["part6_prior_conditions_explanation"]
+    },
+    "part6_past_year_treatment": {
+      "field_name": "P6c", 
+      "options": ["no", "unknown", "yes"],
+      "conditional_fields": ["part6_past_year_treatment_explanation"]
+    }
+  },
+  "radio_button_groups": {
+    "provider_designation": [
+      "provider_designation_physician",
+      "provider_designation_physio",
+      "provider_designation_chiro",
+      "provider_designation_dentist",
+      "provider_designation_nurse",
+      "provider_designation_occup"
+    ],
+    "part12_decision": [
+      "part12_waive",
+      "part12_review",
+      "part12_other"
+    ]
+  },
+  "text_fields": [
+    "part6_prior_conditions_explanation",
+    "part6_past_year_treatment_explanation",
+    "part7_barriers_explanation",
+    "injury_sequelae_1_diagnosis",
+    "injury_sequelae_2_diagnosis",
+    "injury_sequelae_3_diagnosis",
+    "injury_sequelae_4_diagnosis",
+    "accident_date",
+    "minor_injury_guideline",
+    "supplementary_services_description",
+    "other_preapproved_services_description"
+  ],
+  "conditional_logic": {
+    "part6_prior_conditions": {
+      "if_yes": ["part6_prior_conditions_explanation"]
+    },
+    "part6_past_year_treatment": {
+      "if_yes": ["part6_past_year_treatment_explanation"]
+    },
+    "part7_barriers_to_recovery": {
+      "if_yes": ["part7_barriers_explanation"]
+    }
+  }
+}
+
+

@@ -1,0 +1,28 @@
+{
+  "clinic_info": {
+    "provider_facility": "Phyiso 100",
+    "provider_address": "123 Main Street",
+    "provider_city": "Toronto",
+    "provider_province": "ON",
+    "provider_postal_code": "A1A 1A1",
+    "provider_phone": "416-000-0000",
+    "provider_extension": "",
+    "provider_fax": "416-000-0001",
+    "provider_email": "info@clinic.example",
+    "provider_fsco_license": "123456",
+    "provider_aisi": "1234"
+  },
+  "health_professional_info": {
+    "provider_initiating": "Jasmin E",
+    "provider_college": "College of Physiotherapists",
+    "provider_health_number": "1234567890",
+    "provider_date": "01-10-2025"
+  },
+  "cover_page": {
+    "cover_name": "",
+    "cover_policy_number": "",
+    "cover_provider_name": "",
+    "cover_claim_number": "",
+    "cover_fax": ""
+  }
+}

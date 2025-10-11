@@ -1,0 +1,100 @@
+# Virtual Environment
+venv/
+env/
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Build artifacts
+*.spec
+*.dmg
+temp_*.dmg
+build/
+dist/
+dmg_contents/
+
+# User Data (IMPORTANT: Never commit user data!)
+data/
+logs/
+temp/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sensitive files
+config/supabase_config.json
+encryption_keys.json
+
+# Keep docs/downloads/ but ignore other downloads
+downloads/
+!docs/downloads/
+!docs/downloads/*.dmg
+
+# Models (too large for git)
+models/
+*.gguf
+
+# Documentation and guides (keep only README.md and MAC_INSTALLER_README.md)
+*_GUIDE.md
+*_DOCUMENTATION.md
+*_IMPLEMENTATION.md
+*_STRATEGY.md
+*_CHECKLIST.md
+*_SUMMARY.md
+*_REFERENCE.md
+TESTING_*.md
+INSTALL_INSTRUCTIONS.txt
+GITHUB_RELEASE_NOTES.md
+DATABASE_INTEGRATION.md
+MULTIPROCESSING_CLEANUP_FIX.md
+RECORDER_UPGRADE.md
+
+# Test files
+test_*.py
+*_test.py
+
+# Other unnecessary files for production
+docker-compose.yml
+Dockerfile
+.dockerignore
+MANIFEST.in
+pyproject.toml
+setup.py
+query_error_logs.py
+analyze_pdf_fields.py
+admin_log_viewer.py
+release_helper.py
+password_reset_page.html
+physio-password-reset/
+setup_code_signing.sh
+remove_quarantine.sh

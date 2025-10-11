@@ -1,0 +1,36 @@
+{
+  "clinic_info": {
+    "health_provider_facility_name": "Your Clinic Name",
+    "health_provider_address": "123 Main Street",
+    "health_provider_city": "Toronto",
+    "health_provider_province": "ON",
+    "health_provider_postal_code": "A1A 1A1",
+    "health_provider_telephone": "416-000-0000",
+    "health_provider_extension": "",
+    "health_provider_fax": "416-000-0001",
+    "health_provider_email": "info@clinic.example",
+    "health_provider_fsco_number": "123456",
+    "health_provider_aisi_number": "1234"
+  },
+  "health_provider_info": {
+    "health_provider_name": "Dr. Jane Smith",
+    "health_provider_college_number": "College of Physicians and Surgeons",
+    "health_provider_date": "01-10-2025"
+  },
+  "professional_info": {
+    "professional_name": "Dr. John Doe",
+    "professional_college_number": "College of Physiotherapists",
+    "professional_facility_name": "Your Clinic Name",
+    "professional_address": "123 Main Street",
+    "professional_city": "Toronto",
+    "professional_province": "ON",
+    "professional_postal_code": "A1A 1A1",
+    "professional_telephone": "416-000-0000",
+    "professional_extension": "",
+    "professional_fax": "416-000-0001",
+    "professional_email": "info@clinic.example",
+    "professional_fsco_number": "123456",
+    "professional_aisi_number": "1234",
+    "professional_date": "01-10-2025"
+  }
+}
