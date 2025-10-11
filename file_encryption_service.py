@@ -135,9 +135,19 @@ class FileEncryptionService:
             
             # Decrypt the file
             if temporary:
-                # Create temporary decrypted file
-                temp_dir = Path("temp")
-                temp_dir.mkdir(exist_ok=True)
+                # Create temporary decrypted file in proper writable location
+                try:
+                    from app_paths import get_temp_path
+                    temp_dir = get_temp_path()
+                except ImportError:
+                    import sys
+                    if sys.platform == 'darwin':
+                        temp_dir = Path(f"/tmp/PhysioClinicAssistant")
+                        temp_dir.mkdir(parents=True, exist_ok=True)
+                    else:
+                        temp_dir = Path("temp")
+                        temp_dir.mkdir(exist_ok=True)
+                
                 temp_filename = f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{Path(encrypted_file_path).name}"
                 decrypted_path = temp_dir / temp_filename
             else:
@@ -252,9 +262,18 @@ class FileEncryptionService:
             }
             
             if temporary:
-                # Create temporary directory for decrypted files
-                temp_dir = Path(f"temp/appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-                temp_dir.mkdir(parents=True, exist_ok=True)
+                # Create temporary directory for decrypted files in proper writable location
+                try:
+                    from app_paths import get_temp_path
+                    temp_dir = get_temp_path(f"appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                except ImportError:
+                    import sys
+                    if sys.platform == 'darwin':
+                        temp_base = Path(f"/tmp/PhysioClinicAssistant/appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                    else:
+                        temp_base = Path(f"temp/appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                    temp_base.mkdir(parents=True, exist_ok=True)
+                    temp_dir = temp_base
                 results['temp_directory'] = str(temp_dir)
             
             for file_record in encrypted_files:
@@ -310,8 +329,17 @@ class FileEncryptionService:
                         'cleaned_files': 1
                     }
             else:
-                # Clean all temp files older than 1 hour
-                temp_dir = Path("temp")
+                # Clean all temp files older than 1 hour from proper temp location
+                try:
+                    from app_paths import get_temp_path
+                    temp_dir = get_temp_path()
+                except ImportError:
+                    import sys
+                    if sys.platform == 'darwin':
+                        temp_dir = Path(f"/tmp/PhysioClinicAssistant")
+                    else:
+                        temp_dir = Path("temp")
+                
                 if not temp_dir.exists():
                     return {'success': True, 'message': 'No temp directory found', 'cleaned_files': 0}
                 

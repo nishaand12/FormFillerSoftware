@@ -23,8 +23,21 @@ class WSIBFormFiller:
     Complete form filler that uses PyPDFForm for all field types
     """
     
-    def __init__(self, config_dir: str = "config"):
-        self.config_dir = config_dir
+    def __init__(self, config_dir: Optional[str] = None):
+        # Use proper resource path for config files (read-only from bundle)
+        if config_dir is None:
+            try:
+                from app_paths import get_resource_path
+                self.config_dir = str(get_resource_path("config"))
+            except ImportError:
+                import sys
+                from pathlib import Path
+                if getattr(sys, '_MEIPASS', None):
+                    self.config_dir = str(Path(sys._MEIPASS) / "config")
+                else:
+                    self.config_dir = "config"
+        else:
+            self.config_dir = config_dir
         self.field_map = self._load_field_map()
         self.checkbox_groups = self._load_checkbox_groups()
         self.field_types = self._load_field_types()

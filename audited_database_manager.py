@@ -18,7 +18,8 @@ from audit_manager import AuditManager, AuditEventType, get_audit_manager
 class AuditedDatabaseManager(EncryptedDatabaseManager):
     """Enhanced database manager with comprehensive audit logging and soft deletes"""
     
-    def __init__(self, db_path: str = "data/clinic_data.db"):
+    def __init__(self, db_path: Optional[str] = None):
+        # Pass None to use proper writable path from DatabaseManager
         super().__init__(db_path)
         self.audit_manager = get_audit_manager()
         self.logger = logging.getLogger(__name__)

@@ -71,15 +71,30 @@ class EncryptionKey:
 class EncryptionManager:
     """Comprehensive encryption manager for all data types"""
     
-    def __init__(self, db_path: str = "data/clinic_data.db", 
-                 key_storage_path: str = "data/encryption_keys.json"):
+    def __init__(self, db_path: Optional[str] = None, 
+                 key_storage_path: Optional[str] = None):
         self.db_path = db_path
-        self.key_storage_path = Path(key_storage_path)
+        
+        # Use proper writable path for encryption keys
+        if key_storage_path is None:
+            try:
+                from app_paths import get_writable_path
+                self.key_storage_path = get_writable_path("data/encryption_keys.json")
+            except ImportError:
+                import sys
+                if sys.platform == 'darwin':
+                    app_support = Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant"
+                    self.key_storage_path = app_support / "data" / "encryption_keys.json"
+                else:
+                    self.key_storage_path = Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "data" / "encryption_keys.json"
+                self.key_storage_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            self.key_storage_path = Path(key_storage_path)
+            # Ensure key storage directory exists
+            self.key_storage_path.parent.mkdir(parents=True, exist_ok=True)
+        
         self.key_rotation_days = 180  # 180 days as requested
         self.logger = logging.getLogger(__name__)
-        
-        # Ensure key storage directory exists
-        self.key_storage_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Load or create encryption keys
         self.keys: Dict[str, EncryptionKey] = {}

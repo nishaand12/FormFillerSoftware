@@ -24,10 +24,26 @@ class OCF23DataExtractor:
     def _load_field_mappings(self):
         """Load OCF-23 field mappings and checkbox groups"""
         try:
-            with open("config/field_map_ocf23_simplified.json", "r") as f:
+            # Use proper resource path for config files
+            try:
+                from app_paths import get_resource_path
+                field_map_path = get_resource_path("config/field_map_ocf23_simplified.json")
+                checkbox_path = get_resource_path("config/ocf23_checkbox_groups_simplified.json")
+            except ImportError:
+                # Fallback for development
+                import sys
+                if getattr(sys, '_MEIPASS', None):
+                    from pathlib import Path
+                    field_map_path = Path(sys._MEIPASS) / "config/field_map_ocf23_simplified.json"
+                    checkbox_path = Path(sys._MEIPASS) / "config/ocf23_checkbox_groups_simplified.json"
+                else:
+                    field_map_path = "config/field_map_ocf23_simplified.json"
+                    checkbox_path = "config/ocf23_checkbox_groups_simplified.json"
+            
+            with open(field_map_path, "r") as f:
                 self.field_map = json.load(f)
             
-            with open("config/ocf23_checkbox_groups_simplified.json", "r") as f:
+            with open(checkbox_path, "r") as f:
                 self.checkbox_groups = json.load(f)
                 
             print("Field mappings loaded successfully")

@@ -120,13 +120,30 @@ class ModelManager:
                 except Exception as e:
                     self.logger.warning(f"Error cleaning up previous model: {e}")
             
-            # Determine model path
-            if model_type == "qwen3-4b":
-                model_path = "models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
-            elif model_type == "qwen3-1.7b":
-                model_path = "models/Qwen3-1.7B-Q8_0.gguf"
-            else:
-                model_path = "models/mistral-7b-instruct-v0.1.Q4_K_M.gguf"
+            # Determine model path using proper writable location
+            try:
+                from app_paths import get_writable_path
+                if model_type == "qwen3-4b":
+                    model_path = str(get_writable_path("models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
+                elif model_type == "qwen3-1.7b":
+                    model_path = str(get_writable_path("models/Qwen3-1.7B-Q8_0.gguf"))
+                else:
+                    model_path = str(get_writable_path("models/mistral-7b-instruct-v0.1.Q4_K_M.gguf"))
+            except ImportError:
+                # Fallback
+                import sys
+                from pathlib import Path as PathLib
+                if sys.platform == 'darwin':
+                    models_dir = PathLib.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models"
+                else:
+                    models_dir = PathLib.home() / ".local" / "share" / "PhysioClinicAssistant" / "models"
+                
+                if model_type == "qwen3-4b":
+                    model_path = str(models_dir / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
+                elif model_type == "qwen3-1.7b":
+                    model_path = str(models_dir / "Qwen3-1.7B-Q8_0.gguf")
+                else:
+                    model_path = str(models_dir / "mistral-7b-instruct-v0.1.Q4_K_M.gguf")
             
             # Check if model file exists
             if not os.path.exists(model_path):

@@ -31,7 +31,6 @@ import multiprocessing.resource_tracker
 
 from pvrecorder_recorder import PvRecorderAudioRecorder
 from transcriber import Transcriber
-from summarizer import Summarizer
 from wsib_data_extractor import WSIBDataExtractor
 from wsib_form_filler import WSIBFormFiller
 from model_downloader import ModelDownloader
@@ -175,7 +174,6 @@ class PhysioApp:
         # Initialize components
         self.recorder = PvRecorderAudioRecorder()
         self.transcriber = Transcriber()
-        self.summarizer = Summarizer()
         # Model selection - can be changed via settings
         self.current_model_type = "qwen3-4b"  # Default to 4B model for better accuracy
         self.wsib_data_extractor = WSIBDataExtractor(model_type=self.current_model_type)
@@ -611,16 +609,27 @@ class PhysioApp:
     
     def create_directories(self):
         """Create necessary directories if they don't exist"""
-        directories = [
-            'config',
-            'data',  # For appointment-centric file organization
-            'models',
-            'logs',
-            'temp'   # For temporary files during processing
-        ]
-        
-        for directory in directories:
-            os.makedirs(directory, exist_ok=True)
+        # Import path helper
+        try:
+            from app_paths import get_writable_path, get_log_path, get_temp_path
+            
+            # Create writable directories in proper locations
+            # config/ is read-only from bundle, don't create
+            get_writable_path("data")  # ~/Library/Application Support/PhysioClinicAssistant/data
+            get_writable_path("models")  # ~/Library/Application Support/PhysioClinicAssistant/models
+            get_log_path()  # ~/Library/Logs/PhysioClinicAssistant
+            get_temp_path()  # /tmp/PhysioClinicAssistant
+            
+            print("✅ Created necessary writable directories in proper locations")
+        except Exception as e:
+            print(f"Warning: Could not create directories: {e}")
+            # Fallback for development
+            directories = ['data', 'models', 'logs', 'temp']
+            for directory in directories:
+                try:
+                    os.makedirs(directory, exist_ok=True)
+                except OSError:
+                    pass  # Ignore if we can't create (bundled app)
     
     def check_models(self):
         """Check if required models are downloaded"""
@@ -1475,8 +1484,15 @@ class PhysioApp:
                 # Copy file to temporary location
                 filename = os.path.basename(file_path)
                 new_filename = f"{appointment_id}_{filename}"
-                temp_dir = "temp"
-                os.makedirs(temp_dir, exist_ok=True)
+                
+                # Use proper temp directory
+                try:
+                    from app_paths import get_temp_path
+                    temp_dir = str(get_temp_path())
+                except ImportError:
+                    temp_dir = "temp"
+                    os.makedirs(temp_dir, exist_ok=True)
+                
                 recording_path = os.path.join(temp_dir, new_filename)
                 
                 shutil.copy2(file_path, recording_path)
@@ -1685,6 +1701,146 @@ class PhysioApp:
             self.root.after(1000, self.start_timer)
 
 
+def is_first_run() -> bool:
+    """Check if this is the first time the app is running"""
+    try:
+        from app_paths import get_writable_path
+        marker_file = get_writable_path(".first_run_complete")
+        return not marker_file.exists()
+    except:
+        return False
+
+
+def run_first_run_setup(root) -> bool:
+    """Run first-time setup: download models and configure app"""
+    try:
+        # Create setup dialog
+        setup_window = tk.Toplevel(root)
+        setup_window.title("First Time Setup")
+        setup_window.geometry("600x400")
+        setup_window.resizable(False, False)
+        setup_window.transient(root)
+        setup_window.grab_set()
+        
+        # Main frame
+        main_frame = ttk.Frame(setup_window, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text="Welcome to Physio Clinic Assistant!", 
+                               font=("Arial", 16, "bold"))
+        title_label.pack(pady=(0, 10))
+        
+        # Info text
+        info_text = (
+            "This is your first time running the application.\n\n"
+            "We need to download AI models (~4.3 GB) for transcription and data extraction.\n"
+            "This is a one-time download and may take 10-15 minutes depending on your connection.\n\n"
+            "The app will download:\n"
+            "• Whisper model for transcription (~1.5 GB)\n"
+            "• Qwen models for data extraction (~2.8 GB)\n\n"
+            "Models will be saved to:\n"
+            "~/Library/Application Support/PhysioClinicAssistant/models/"
+        )
+        info_label = ttk.Label(main_frame, text=info_text, justify="left", wraplength=550)
+        info_label.pack(pady=(0, 20))
+        
+        # Progress frame
+        progress_frame = ttk.Frame(main_frame)
+        progress_frame.pack(fill="x", pady=(0, 20))
+        
+        status_var = tk.StringVar(value="Ready to download")
+        status_label = ttk.Label(progress_frame, textvariable=status_var)
+        status_label.pack()
+        
+        progress = ttk.Progressbar(progress_frame, mode='indeterminate')
+        progress.pack(fill="x", pady=(10, 0))
+        
+        # Download flag
+        download_complete = {'success': False}
+        
+        def start_download():
+            """Start model download in background thread"""
+            download_btn.config(state="disabled")
+            skip_btn.config(state="disabled")
+            progress.start()
+            status_var.set("Downloading models... This may take 10-15 minutes")
+            
+            def download_thread():
+                try:
+                    from model_downloader import ModelDownloader
+                    downloader = ModelDownloader()
+                    
+                    # Download all models
+                    status_var.set("Downloading models... Please wait...")
+                    downloader.download_all_models()
+                    
+                    # Complete setup
+                    root.after(0, lambda: status_var.set("Finalizing setup..."))
+                    root.after(0, progress.stop)
+                    
+                    # Complete setup in main thread
+                    root.after(100, lambda: complete_setup())
+                    
+                except Exception as e:
+                    root.after(0, lambda: status_var.set(f"Error: {e}"))
+                    root.after(0, progress.stop)
+                    root.after(0, lambda: messagebox.showerror("Download Failed", 
+                        f"Failed to download models: {e}\n\nYou can try downloading later from the Tools menu."))
+                    download_complete['success'] = False
+                    root.after(500, setup_window.destroy)
+            
+            def complete_setup():
+                """Complete first-run setup"""
+                # Mark first run as complete
+                try:
+                    from app_paths import get_writable_path
+                    marker_file = get_writable_path(".first_run_complete")
+                    marker_file.write_text("Setup completed successfully")
+                except:
+                    pass
+                
+                download_complete['success'] = True
+                status_var.set("Setup complete! You can now start recording.")
+                setup_window.after(1500, setup_window.destroy)
+            
+            thread = threading.Thread(target=download_thread, daemon=True)
+            thread.start()
+        
+        def skip_download():
+            """Skip download and mark for later"""
+            result = messagebox.askyesno(
+                "Skip Download?",
+                "Models are required for transcription and form filling.\n\n"
+                "Without models, you won't be able to process appointments.\n\n"
+                "You can download them later from Tools > Download Models.\n\n"
+                "Skip download for now?"
+            )
+            if result:
+                download_complete['success'] = True
+                setup_window.destroy()
+        
+        # Buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack()
+        
+        download_btn = ttk.Button(button_frame, text="Download Now", command=start_download)
+        download_btn.pack(side="left", padx=5)
+        
+        skip_btn = ttk.Button(button_frame, text="Skip for Now", command=skip_download)
+        skip_btn.pack(side="left", padx=5)
+        
+        # Wait for window to close
+        setup_window.wait_window()
+        
+        return download_complete['success']
+        
+    except Exception as e:
+        print(f"Error in first run setup: {e}")
+        messagebox.showerror("Setup Error", f"First run setup failed: {e}")
+        return False
+
+
 def main():
     """Main entry point with authentication check"""
     root = tk.Tk()
@@ -1696,16 +1852,51 @@ def main():
     if auth_status == 'unauthenticated':
         # Show login dialog
         def on_login_success():
-            # Login successful, start the main app
+            # Login successful, check subscription before starting the main app
+            subscription_checker = SubscriptionChecker(auth_manager)
+            status, message = subscription_checker.check_subscription_status(force_online=True)
+            
+            if status in ['expired', 'cancelled', 'past_due']:
+                messagebox.showerror(
+                    "Subscription Expired",
+                    "Your subscription has expired. Please contact ceteasystems@gmail.com to renew your subscription."
+                )
+                root.quit()
+                return
+            
+            # Check if first run and download models if needed
+            if is_first_run():
+                if not run_first_run_setup(root):
+                    root.quit()
+                    return
+            
+            # Subscription valid and setup complete, start the main app
             app = PhysioApp(root)
-            root.mainloop()
+            # Don't call mainloop here - it's already running
         
         login_gui = show_login_dialog(root, on_login_success)
         root.mainloop()  # Start the main loop for login dialog
         
     elif auth_status in ['authenticated', 'expired']:
-        # User is authenticated or has cached auth, start the main app
-        app = PhysioApp(root)
+        # User is authenticated or has cached auth, check subscription
+        subscription_checker = SubscriptionChecker(auth_manager)
+        status, message = subscription_checker.check_subscription_status()
+        
+        if status in ['expired', 'cancelled', 'past_due']:
+            messagebox.showerror(
+                "Subscription Expired",
+                "Your subscription has expired. Please contact ceteasystems@gmail.com to renew your subscription."
+            )
+            root.quit()
+        else:
+            # Check if first run and download models if needed
+            if is_first_run():
+                if not run_first_run_setup(root):
+                    root.quit()
+                    return
+            
+            # Subscription valid and setup complete, start the main app
+            app = PhysioApp(root)
         
         # If expired, show warning but allow offline access
         if auth_status == 'expired':
@@ -1724,4 +1915,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # Critical: freeze_support() must be called first in frozen PyInstaller apps
+    # to prevent duplicate app instances when multiprocessing spawns child processes
+    multiprocessing.freeze_support()
+    
     main() 

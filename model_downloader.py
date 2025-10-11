@@ -13,20 +13,32 @@ import sys
 
 class ModelDownloader:
     def __init__(self):
-        self.models_dir = "models"
-        self.cache_dir = os.path.expanduser("~/.cache/huggingface")
+        # Use proper writable path for models
+        try:
+            from app_paths import get_writable_path
+            self.models_dir = str(get_writable_path("models"))
+        except ImportError:
+            import sys
+            from pathlib import Path
+            if sys.platform == 'darwin':
+                self.models_dir = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models")
+            else:
+                self.models_dir = "models"
         
+        self.cache_dir = os.path.expanduser("~/.cache/huggingface")
+    
     def check_models(self):
         """Check if all required models are downloaded"""
-        required_models = [
-            "models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",    # Qwen3-4B-Instruct model
-            "models/Qwen3-1.7B-Q8_0.gguf",                  # Qwen3-1.7B efficient model
+        model_files = [
+            "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+            "Qwen3-1.7B-Q8_0.gguf",
         ]
         
         missing_models = []
-        for model_path in required_models:
+        for model_file in model_files:
+            model_path = os.path.join(self.models_dir, model_file)
             if not os.path.exists(model_path):
-                missing_models.append(model_path)
+                missing_models.append(model_file)
         
         if missing_models:
             print(f"Missing models: {missing_models}")
@@ -37,9 +49,9 @@ class ModelDownloader:
     
     def download_all_models(self):
         """Download all required models"""
-        print("Starting model downloads...")
+        print(f"Starting model downloads to {self.models_dir}...")
         
-        # Create models directory
+        # Create models directory (get_writable_path already creates it, but ensure it exists)
         os.makedirs(self.models_dir, exist_ok=True)
         
         # Download Qwen model for data extraction

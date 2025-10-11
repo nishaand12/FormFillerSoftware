@@ -18,7 +18,17 @@ class Summarizer:
     def _load_model(self):
         """Load the Qwen model for summarization"""
         if self.llama_model is None:
-            model_path = "models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+            # Use proper writable path for models
+            try:
+                from app_paths import get_writable_path
+                model_path = str(get_writable_path("models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
+            except ImportError:
+                import sys
+                from pathlib import Path
+                if sys.platform == 'darwin':
+                    model_path = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
+                else:
+                    model_path = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
             
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"Qwen model not found at {model_path}")

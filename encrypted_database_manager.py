@@ -18,7 +18,8 @@ import logging
 class EncryptedDatabaseManager(DatabaseManager):
     """Enhanced database manager with encryption for sensitive data"""
     
-    def __init__(self, db_path: str = "data/clinic_data.db"):
+    def __init__(self, db_path: Optional[str] = None):
+        # Pass None to use proper writable path from DatabaseManager
         super().__init__(db_path)
         self.encryption_manager = get_encryption_manager()
         self.logger = logging.getLogger(__name__)
@@ -90,9 +91,13 @@ class EncryptedDatabaseManager(DatabaseManager):
             microseconds = int(time.time() * 1000000) % 1000000
             appointment_code = f"{date_str}_{time_str}_{microseconds:06d}"
             
-            # Create folder path
+            # Create folder path in writable location
             safe_patient_name = patient_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
-            folder_path = f"data/{appointment_date}/{safe_patient_name}_{appointment_time}"
+            try:
+                from app_paths import get_writable_path
+                folder_path = str(get_writable_path(f"data/{appointment_date}/{safe_patient_name}_{appointment_time}"))
+            except ImportError:
+                folder_path = f"data/{appointment_date}/{safe_patient_name}_{appointment_time}"
             encrypted_folder_path = self.encryption_manager.encrypt_file_path(folder_path)
             
             with self.get_connection() as conn:

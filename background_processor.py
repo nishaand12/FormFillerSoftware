@@ -107,9 +107,20 @@ class BackgroundProcessor:
         # Clear any existing handlers
         self.logger.handlers.clear()
         
-        # File handler with rotation (10MB max, keep 5 backups)
+        # File handler with rotation (10MB max, keep 5 backups) in proper writable location
+        try:
+            from app_paths import get_log_path
+            log_file = str(get_log_path("background_processor.log"))
+        except ImportError:
+            import sys
+            from pathlib import Path
+            if sys.platform == 'darwin':
+                log_file = str(Path.home() / "Library" / "Logs" / "PhysioClinicAssistant" / "background_processor.log")
+            else:
+                log_file = "logs/background_processor.log"
+        
         file_handler = RotatingFileHandler(
-            'logs/background_processor.log',
+            log_file,
             maxBytes=10 * 1024 * 1024,  # 10MB
             backupCount=5
         )
@@ -464,7 +475,18 @@ class BackgroundProcessor:
             
             # Fill WSIB form if requested
             if job.forms_to_fill.get('wsib', False):
-                wsib_template = "forms/templates/wsib_faf_template.pdf"
+                # Use proper resource path for form templates
+                try:
+                    from app_paths import get_resource_path
+                    wsib_template = str(get_resource_path("forms/templates/wsib_faf_template.pdf"))
+                except ImportError:
+                    import sys
+                    if getattr(sys, '_MEIPASS', None):
+                        from pathlib import Path
+                        wsib_template = str(Path(sys._MEIPASS) / "forms/templates/wsib_faf_template.pdf")
+                    else:
+                        wsib_template = "forms/templates/wsib_faf_template.pdf"
+                
                 if not os.path.exists(wsib_template):
                     raise Exception(f"WSIB template not found at {wsib_template}")
                 
@@ -545,7 +567,18 @@ class BackgroundProcessor:
             appointment = self.db_manager.get_appointment(db_appointment_id, user_id)
             appointment_folder = appointment['folder_path']
 
-            ocf23_template = "forms/templates/fsra_ocf23_template.pdf"
+            # Use proper resource path for form templates
+            try:
+                from app_paths import get_resource_path
+                ocf23_template = str(get_resource_path("forms/templates/fsra_ocf23_template.pdf"))
+            except ImportError:
+                import sys
+                if getattr(sys, '_MEIPASS', None):
+                    from pathlib import Path
+                    ocf23_template = str(Path(sys._MEIPASS) / "forms/templates/fsra_ocf23_template.pdf")
+                else:
+                    ocf23_template = "forms/templates/fsra_ocf23_template.pdf"
+            
             if not os.path.exists(ocf23_template):
                 raise Exception(f"OCF-23 template not found at {ocf23_template}")
 
@@ -612,7 +645,18 @@ class BackgroundProcessor:
             appointment = self.db_manager.get_appointment(db_appointment_id, user_id)
             appointment_folder = appointment['folder_path']
 
-            ocf18_template = "forms/templates/fsra_ocf18_template.pdf"
+            # Use proper resource path for form templates
+            try:
+                from app_paths import get_resource_path
+                ocf18_template = str(get_resource_path("forms/templates/fsra_ocf18_template.pdf"))
+            except ImportError:
+                import sys
+                if getattr(sys, '_MEIPASS', None):
+                    from pathlib import Path
+                    ocf18_template = str(Path(sys._MEIPASS) / "forms/templates/fsra_ocf18_template.pdf")
+                else:
+                    ocf18_template = "forms/templates/fsra_ocf18_template.pdf"
+            
             if not os.path.exists(ocf18_template):
                 raise Exception(f"OCF-18 template not found at {ocf18_template}")
 

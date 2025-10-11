@@ -6,6 +6,7 @@ Handles SQLite database operations for patient data, appointments, and file mana
 
 import sqlite3
 import os
+import sys
 import json
 import hashlib
 from datetime import datetime, timedelta
@@ -13,17 +14,39 @@ from typing import Dict, List, Optional, Tuple
 import shutil
 import zipfile
 import tempfile
+from pathlib import Path
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import base64
 import secrets
 
+# Import path helper for proper writable locations
+try:
+    from app_paths import get_database_path
+except ImportError:
+    # Fallback if app_paths not available
+    def get_database_path() -> Path:
+        """Fallback function for getting database path"""
+        app_name = "PhysioClinicAssistant"
+        if sys.platform == 'darwin':
+            base_path = Path.home() / "Library" / "Application Support" / app_name
+        else:
+            base_path = Path.home() / ".local" / "share" / app_name
+        base_path.mkdir(parents=True, exist_ok=True)
+        data_dir = base_path / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir / "clinic_data.db"
+
 
 class DatabaseManager:
-    def __init__(self, db_path: str = "data/clinic_data.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """Initialize database manager"""
-        self.db_path = db_path
+        # Use proper writable database path
+        if db_path is None:
+            self.db_path = str(get_database_path())
+        else:
+            self.db_path = db_path
         self.ensure_data_directory()
         self.init_database()
         self.load_default_settings()
@@ -213,9 +236,13 @@ class DatabaseManager:
             microseconds = int(time.time() * 1000000) % 1000000  # Get microseconds
             appointment_code = f"{date_str}_{time_str}_{microseconds:06d}"
             
-            # Create folder path: /data/YYYY-MM-DD/PatientName_HHMMSS/
+            # Create folder path in writable location: ~/Library/Application Support/.../data/YYYY-MM-DD/PatientName_HHMMSS/
             safe_patient_name = patient_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
-            folder_path = f"data/{appointment_date}/{safe_patient_name}_{appointment_time}"
+            try:
+                from app_paths import get_writable_path
+                folder_path = str(get_writable_path(f"data/{appointment_date}/{safe_patient_name}_{appointment_time}"))
+            except ImportError:
+                folder_path = f"data/{appointment_date}/{safe_patient_name}_{appointment_time}"
             
             cursor.execute("""
                 INSERT INTO appointments (appointment_code, patient_name, appointment_date, appointment_time, 
@@ -270,8 +297,12 @@ class DatabaseManager:
     
     def ensure_date_folder_exists(self, appointment_date: str) -> str:
         """Ensure the date folder exists and return the path"""
-        date_folder = f"data/{appointment_date}"
-        os.makedirs(date_folder, exist_ok=True)
+        try:
+            from app_paths import get_writable_path
+            date_folder = str(get_writable_path(f"data/{appointment_date}"))
+        except ImportError:
+            date_folder = f"data/{appointment_date}"
+            os.makedirs(date_folder, exist_ok=True)
         return date_folder
     
     def get_date_folders(self) -> List[str]:
@@ -894,9 +925,17 @@ class DatabaseManager:
                 if not appointments_to_archive:
                     return {'success': True, 'archived_count': 0, 'archived_size': 0, 'cutoff_date': cutoff_date, 'message': 'No data to archive'}
                 
-                # Create archive directory
-                archive_dir = "data/archived"
-                os.makedirs(archive_dir, exist_ok=True)
+                # Create archive directory in proper writable location
+                try:
+                    from app_paths import get_writable_path
+                    archive_dir = str(get_writable_path("data/archived"))
+                except ImportError:
+                    import sys
+                    if sys.platform == 'darwin':
+                        archive_dir = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "data" / "archived")
+                    else:
+                        archive_dir = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "data" / "archived")
+                    os.makedirs(archive_dir, exist_ok=True)
                 
                 archived_count = 0
                 archived_size = 0

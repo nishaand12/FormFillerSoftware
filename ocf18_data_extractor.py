@@ -24,13 +24,32 @@ class OCF18DataExtractor:
     def _load_configs(self):
         """Load OCF-18 field map, checkbox groups, and field types"""
         try:
-            with open("config/field_map_ocf18.json", "r") as f:
+            # Use proper resource path for config files
+            try:
+                from app_paths import get_resource_path
+                field_map_path = get_resource_path("config/field_map_ocf18.json")
+                checkbox_path = get_resource_path("config/ocf18_checkbox_groups.json")
+                field_types_path = get_resource_path("config/ocf18_field_types.json")
+            except ImportError:
+                # Fallback for development
+                import sys
+                if getattr(sys, '_MEIPASS', None):
+                    from pathlib import Path
+                    field_map_path = Path(sys._MEIPASS) / "config/field_map_ocf18.json"
+                    checkbox_path = Path(sys._MEIPASS) / "config/ocf18_checkbox_groups.json"
+                    field_types_path = Path(sys._MEIPASS) / "config/ocf18_field_types.json"
+                else:
+                    field_map_path = "config/field_map_ocf18.json"
+                    checkbox_path = "config/ocf18_checkbox_groups.json"
+                    field_types_path = "config/ocf18_field_types.json"
+
+            with open(field_map_path, "r") as f:
                 self.field_map = json.load(f)
 
-            with open("config/ocf18_checkbox_groups.json", "r") as f:
+            with open(checkbox_path, "r") as f:
                 self.checkbox_groups = json.load(f)
 
-            with open("config/ocf18_field_types.json", "r") as f:
+            with open(field_types_path, "r") as f:
                 self.field_types = json.load(f).get("field_types", {})
 
             print("OCF-18 configs loaded successfully")

@@ -4,6 +4,7 @@ Provides comprehensive error logging, monitoring, and security event tracking
 """
 
 import os
+import sys
 import json
 import logging
 import traceback
@@ -11,6 +12,25 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from enum import Enum
+
+# Import path helper for proper writable locations
+try:
+    from app_paths import get_log_path
+except ImportError:
+    # Fallback if app_paths not available
+    def get_log_path(relative_path: str = "") -> Path:
+        """Fallback function for getting log path"""
+        app_name = "PhysioClinicAssistant"
+        if sys.platform == 'darwin':
+            base_path = Path.home() / "Library" / "Logs" / app_name
+        else:
+            base_path = Path.home() / ".local" / "share" / app_name / "logs"
+        base_path.mkdir(parents=True, exist_ok=True)
+        if relative_path:
+            full_path = base_path / relative_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            return full_path
+        return base_path
 
 
 class LogLevel(Enum):
@@ -46,8 +66,12 @@ class SecurityEvent(Enum):
 class ErrorLogger:
     """Comprehensive error logging and monitoring system"""
     
-    def __init__(self, log_dir: str = "logs", max_log_size: int = 10 * 1024 * 1024):  # 10MB
-        self.log_dir = Path(log_dir)
+    def __init__(self, log_dir: Optional[str] = None, max_log_size: int = 10 * 1024 * 1024):  # 10MB
+        # Use proper writable log directory
+        if log_dir is None:
+            self.log_dir = get_log_path()
+        else:
+            self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.max_log_size = max_log_size
         

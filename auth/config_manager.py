@@ -5,15 +5,31 @@ Handles loading and managing Supabase configuration
 
 import json
 import os
+import sys
 from typing import Dict, Any, Optional
 from pathlib import Path
+
+# Import path helper for proper resource locations
+try:
+    from app_paths import get_resource_path
+except ImportError:
+    # Fallback if app_paths not available
+    def get_resource_path(relative_path: str = "") -> Path:
+        """Fallback function for getting resource path"""
+        if getattr(sys, '_MEIPASS', None):
+            return Path(sys._MEIPASS) / relative_path if relative_path else Path(sys._MEIPASS)
+        return Path(__file__).parent.parent / relative_path if relative_path else Path(__file__).parent.parent
 
 
 class ConfigManager:
     """Manages authentication configuration from files and environment variables"""
     
-    def __init__(self, config_dir: str = "config"):
-        self.config_dir = Path(config_dir)
+    def __init__(self, config_dir: Optional[str] = None):
+        # Use proper resource path for config files (read-only from bundle)
+        if config_dir is None:
+            self.config_dir = get_resource_path("config")
+        else:
+            self.config_dir = Path(config_dir)
         self.supabase_config_file = self.config_dir / "supabase_config.json"
         self._config_cache: Optional[Dict[str, Any]] = None
     

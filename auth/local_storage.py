@@ -4,6 +4,7 @@ Handles secure encryption/decryption and caching of sensitive data
 """
 
 import os
+import sys
 import json
 import base64
 import hashlib
@@ -15,12 +16,35 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+# Import path helper for proper writable locations
+try:
+    from app_paths import get_cache_path
+except ImportError:
+    # Fallback if app_paths not available
+    def get_cache_path(relative_path: str = "") -> Path:
+        """Fallback function for getting cache path"""
+        app_name = "PhysioClinicAssistant"
+        if sys.platform == 'darwin':
+            base_path = Path.home() / "Library" / "Caches" / app_name
+        else:
+            base_path = Path.home() / ".cache" / app_name
+        base_path.mkdir(parents=True, exist_ok=True)
+        if relative_path:
+            full_path = base_path / relative_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            return full_path
+        return base_path
+
 
 class LocalStorageManager:
     """Manages secure local storage of authentication tokens and subscription data"""
     
-    def __init__(self, cache_dir: str = "auth/cache"):
-        self.cache_dir = Path(cache_dir)
+    def __init__(self, cache_dir: Optional[str] = None):
+        # Use proper cache directory that's writable
+        if cache_dir is None:
+            self.cache_dir = get_cache_path("auth")
+        else:
+            self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Cache file paths

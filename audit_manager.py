@@ -39,8 +39,21 @@ class AuditEventType(Enum):
 class AuditManager:
     """Manages immutable audit logging with cryptographic integrity"""
     
-    def __init__(self, db_path: str = "data/clinic_data.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None):
+        # Use proper writable database path
+        if db_path is None:
+            try:
+                from app_paths import get_database_path
+                self.db_path = str(get_database_path())
+            except ImportError:
+                import sys
+                if sys.platform == 'darwin':
+                    app_support = Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant"
+                    self.db_path = str(app_support / "data" / "clinic_data.db")
+                else:
+                    self.db_path = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "data" / "clinic_data.db")
+        else:
+            self.db_path = db_path
         self.logger = logging.getLogger(__name__)
         self.retention_years = 7  # Configurable retention period
         

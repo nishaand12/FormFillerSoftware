@@ -14,9 +14,24 @@ from typing import Dict, Any, List, Optional
 class StoredFormFieldsEditor:
     """Stored Form Fields editor for managing professional information"""
     
-    def __init__(self, parent, config_dir: str = "config"):
+    def __init__(self, parent, config_dir: Optional[str] = None):
         self.parent = parent
-        self.config_dir = config_dir
+        
+        # Use proper resource path for config files (read-only from bundle)
+        if config_dir is None:
+            try:
+                from app_paths import get_resource_path
+                self.config_dir = str(get_resource_path("config"))
+            except ImportError:
+                import sys
+                from pathlib import Path
+                if getattr(sys, '_MEIPASS', None):
+                    self.config_dir = str(Path(sys._MEIPASS) / "config")
+                else:
+                    self.config_dir = "config"
+        else:
+            self.config_dir = config_dir
+        
         self.editor_window = None
         
         # Form configurations

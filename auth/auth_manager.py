@@ -49,8 +49,20 @@ class AuthManager:
                 # This will fail if no internet connection
                 self.supabase.table('user_profiles').select('id').limit(1).execute()
                 return True
-        except Exception:
-            pass
+            else:
+                print("⚠️  Supabase client not initialized")
+                return False
+        except Exception as e:
+            print(f"⚠️  Internet connectivity check failed: {type(e).__name__}: {e}")
+            # Try a simpler connectivity test
+            try:
+                import socket
+                socket.create_connection(("8.8.8.8", 53), timeout=3)
+                print("✓ Basic internet works, but Supabase connection failed")
+                return False
+            except:
+                print("✗ No internet connection detected")
+                return False
         return False
     
     def register_user(self, email: str, password: str, full_name: str = "", clinic_name: str = "") -> Tuple[bool, str]:

@@ -20,10 +20,11 @@ from encryption_manager import get_encryption_manager
 class EncryptionMigration:
     """Handles migration of existing data to encrypted format"""
     
-    def __init__(self, db_path: str = "data/clinic_data.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None):
+        # Both managers will use proper writable paths if None
         self.old_db_manager = DatabaseManager(db_path)
         self.new_db_manager = EncryptedDatabaseManager(db_path)
+        self.db_path = self.old_db_manager.db_path  # Use the resolved path
         self.encryption_service = FileEncryptionService(self.new_db_manager)
         self.encryption_manager = get_encryption_manager()
         

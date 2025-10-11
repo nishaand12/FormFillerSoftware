@@ -23,10 +23,26 @@ class WSIBDataExtractor:
     def _load_field_mappings(self):
         """Load WSIB field mappings and checkbox groups"""
         try:
-            with open("config/field_map_wsib.json", "r") as f:
+            # Use proper resource path for config files
+            try:
+                from app_paths import get_resource_path
+                field_map_path = get_resource_path("config/field_map_wsib.json")
+                checkbox_path = get_resource_path("config/wsib_checkbox_groups.json")
+            except ImportError:
+                # Fallback for development
+                import sys
+                if getattr(sys, '_MEIPASS', None):
+                    from pathlib import Path
+                    field_map_path = Path(sys._MEIPASS) / "config/field_map_wsib.json"
+                    checkbox_path = Path(sys._MEIPASS) / "config/wsib_checkbox_groups.json"
+                else:
+                    field_map_path = "config/field_map_wsib.json"
+                    checkbox_path = "config/wsib_checkbox_groups.json"
+            
+            with open(field_map_path, "r") as f:
                 self.field_map = json.load(f)
             
-            with open("config/wsib_checkbox_groups.json", "r") as f:
+            with open(checkbox_path, "r") as f:
                 self.checkbox_groups = json.load(f)
                 
             print("Field mappings loaded successfully")

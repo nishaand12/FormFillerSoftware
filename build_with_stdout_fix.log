@@ -1,0 +1,32 @@
+🚀 Building PhysioClinicAssistant v2.1.0
+============================================================
+[1/6] Cleanup - Cleaning previous builds (0.0s)
+[2/6] Main App - Building main application (0.0s)
+[3/6] Icon prepared: static/logo.icns (1.3s)
+[4/6] Starting: PyInstaller main app (1.3s)
+[5/6] Still running... (30s elapsed) (31.4s)
+[6/6] Still running... (60s elapsed) (61.4s)
+[7/6] Still running... (90s elapsed) (91.5s)
+[8/6] Still running... (120s elapsed) (121.6s)
+[9/6] Still running... (150s elapsed) (151.6s)
+[10/6] Completed: PyInstaller main app (156.0s)
+[11/6] App Bundle - Customizing .app bundle (156.0s)
+[12/6] Icon file configured in Info.plist (156.1s)
+[13/6] Customized PhysioClinicAssistant.app Info.plist (156.1s)
+[14/6] Set executable permissions on PhysioClinicAssistant (156.1s)
+[15/6] Code Signing - Signing application (156.1s)
+[16/6] WARNING - No signing identity provided - skipping code signing (156.1s)
+[17/6] Notarization - Notarizing application (156.1s)
+[18/6] WARNING - Notarization credentials not provided - skipping notarization (156.1s)
+[19/6] DMG Creation - Creating DMG (156.1s)
+[20/6] Starting: Create temporary DMG (attempt 1/3) (163.5s)
+[21/6] Still running... (30s elapsed) (193.6s)
+[22/6] Still running... (60s elapsed) (223.6s)
+[23/6] Completed: Create temporary DMG (attempt 1/3) (225.7s)
+[24/6] Starting: Compress DMG (225.7s)
+[25/6] Completed: Compress DMG (244.4s)
+[26/6] DMG created: PhysioClinicAssistant-2.1.0-macOS.dmg (634.2 MB) (245.1s)
+[27/6] Cleanup - Cleaning up (245.1s)
+============================================================
+✅ Build completed successfully in 245.1s
+📦 DMG file: PhysioClinicAssistant-2.1.0-macOS.dmg

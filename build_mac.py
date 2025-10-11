@@ -216,6 +216,7 @@ class SimpleMacBuilder:
             "--add-data", "auth:auth",
             "--add-data", "static:static",  # Include static directory with logo
             # "--add-data", "models:models",  # Exclude models - download separately
+            "--add-data", "app_paths.py:.",  # Path helper for writable directories
             "--add-data", "setup_wizard.py:.",
             "--add-data", "system_checker.py:.",
             "--add-data", "config_validator.py:.",
@@ -226,25 +227,91 @@ class SimpleMacBuilder:
             "--add-data", "requirements.txt:.",
         ])
         
-        # Add hidden imports
+        # Add hidden imports (comprehensive list for all dependencies)
         cmd.extend([
+            # Core GUI
             "--hidden-import", "tkinter",
             "--hidden-import", "tkinter.ttk",
             "--hidden-import", "tkinter.messagebox",
             "--hidden-import", "tkinter.filedialog",
+            "--hidden-import", "tkinter.scrolledtext",
+            "--hidden-import", "_tkinter",
+            
+            # PIL/Pillow with tkinter
+            "--hidden-import", "PIL",
+            "--hidden-import", "PIL._tkinter_finder",
+            "--hidden-import", "PIL.Image",
+            "--hidden-import", "PIL.ImageTk",
+            
+            # System libraries
             "--hidden-import", "threading",
             "--hidden-import", "multiprocessing",
+            "--hidden-import", "multiprocessing.pool",
+            "--hidden-import", "multiprocessing.resource_tracker",
+            "--hidden-import", "multiprocessing.synchronize",
+            "--hidden-import", "queue",
+            "--hidden-import", "plistlib",
+            
+            # Audio recording
             "--hidden-import", "pvrecorder",
-            "--hidden-import", "faster_whisper",
-            "--hidden-import", "llama_cpp_python",
-            "--hidden-import", "cryptography",
-            "--hidden-import", "supabase",
-            "--hidden-import", "numpy",
-            "--hidden-import", "scipy",
-            "--hidden-import", "PIL",
-            "--hidden-import", "reportlab",
             "--hidden-import", "sounddevice",
+            
+            # AI/ML models
+            "--hidden-import", "faster_whisper",
+            "--hidden-import", "faster_whisper.transcribe",
+            "--hidden-import", "faster_whisper.vad",
+            "--hidden-import", "faster_whisper.audio",
+            "--hidden-import", "llama_cpp",
+            "--hidden-import", "llama_cpp_python",
+            "--hidden-import", "transformers",
+            "--hidden-import", "transformers.models",
+            
+            # Scientific computing
+            "--hidden-import", "numpy",
+            "--hidden-import", "numpy.core",
+            "--hidden-import", "scipy",
+            "--hidden-import", "scipy.special",
+            
+            # PDF handling
+            "--hidden-import", "reportlab",
+            "--hidden-import", "reportlab.pdfgen",
+            "--hidden-import", "pypdf",
+            "--hidden-import", "PyPDF2",
+            
+            # Database and encryption
             "--hidden-import", "sqlite3",
+            "--hidden-import", "cryptography",
+            "--hidden-import", "cryptography.fernet",
+            "--hidden-import", "cryptography.hazmat",
+            "--hidden-import", "cryptography.hazmat.backends",
+            "--hidden-import", "cryptography.hazmat.primitives",
+            
+            # Supabase and networking
+            "--hidden-import", "supabase",
+            "--hidden-import", "supabase.client",
+            "--hidden-import", "supabase.lib",
+            "--hidden-import", "postgrest",
+            "--hidden-import", "realtime",
+            "--hidden-import", "storage3",
+            "--hidden-import", "httpx",
+            "--hidden-import", "requests",
+            "--hidden-import", "certifi",
+            "--hidden-import", "ssl",
+            "--hidden-import", "socket",
+            
+            # Utilities
+            "--hidden-import", "json",
+            "--hidden-import", "pkg_resources",
+            "--hidden-import", "pkg_resources.py2_warn",
+            "--hidden-import", "packaging",
+        ])
+        
+        # Collect all submodules for complex packages (including native libraries)
+        cmd.extend([
+            "--collect-all", "pvrecorder",  # Includes libpv_recorder.dylib
+            "--collect-all", "faster_whisper",
+            "--collect-all", "llama_cpp",
+            "--collect-all", "transformers",
         ])
         
         # Use run_app.py as entry point for better multiprocessing cleanup
@@ -281,6 +348,12 @@ class SimpleMacBuilder:
             # Add/update required keys for functionality
             plist_data['NSMicrophoneUsageDescription'] = "This app needs microphone access to record patient appointments."
             plist_data['NSAudioRecorderUsageDescription'] = "This app needs audio recording access to record patient appointments."
+            
+            # Bluetooth permissions for wireless audio devices
+            plist_data['NSBluetoothAlwaysUsageDescription'] = "This app needs Bluetooth access to connect to wireless microphones and audio devices."
+            plist_data['NSBluetoothPeripheralUsageDescription'] = "This app needs Bluetooth access to use wireless audio recording devices."
+            
+            # Additional system permissions
             plist_data['NSHighResolutionCapable'] = True
             plist_data['LSMinimumSystemVersion'] = "10.15.0"
             

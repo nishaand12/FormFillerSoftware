@@ -13,12 +13,35 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 import logging
 
+# Import path helpers
+try:
+    from app_paths import get_resource_path, get_writable_path
+except ImportError:
+    def get_resource_path(relative_path: str = "") -> Path:
+        if getattr(sys, '_MEIPASS', None):
+            return Path(sys._MEIPASS) / relative_path if relative_path else Path(sys._MEIPASS)
+        return Path(__file__).parent / relative_path if relative_path else Path(__file__).parent
+    
+    def get_writable_path(relative_path: str = "") -> Path:
+        app_name = "PhysioClinicAssistant"
+        if sys.platform == 'darwin':
+            base_path = Path.home() / "Library" / "Application Support" / app_name
+        else:
+            base_path = Path.home() / ".local" / "share" / app_name
+        base_path.mkdir(parents=True, exist_ok=True)
+        if relative_path:
+            full_path = base_path / relative_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            return full_path
+        return base_path
+
 
 class ConfigValidator:
     """Validates application configuration and required files"""
     
     def __init__(self):
-        self.base_dir = Path(__file__).parent
+        # Use proper resource path for bundled files
+        self.base_dir = get_resource_path()
         self.required_files = {
             'config': [
                 'config/field_map_ocf18.json',
@@ -93,9 +116,18 @@ class ConfigValidator:
             
             for category, files in self.required_files.items():
                 for file_path in files:
-                    full_path = self.base_dir / file_path
+                    # Use appropriate base path based on file category
+                    if category == 'models':
+                        # Models are downloaded to writable location
+                        full_path = get_writable_path(file_path)
+                    else:
+                        # config, forms, auth are bundled in app (read-only)
+                        full_path = get_resource_path(file_path)
+                    
                     if not full_path.exists():
-                        missing_files.append(file_path)
+                        # Models are optional (downloaded on demand)
+                        if category != 'models':
+                            missing_files.append(file_path)
             
             if not missing_files:
                 self.validation_results['required_files'] = True
@@ -116,7 +148,8 @@ class ConfigValidator:
             config_errors = []
             
             for file_path in self.required_files['config']:
-                full_path = self.base_dir / file_path
+                # Config files are in bundle (read-only)
+                full_path = get_resource_path(file_path)
                 if full_path.exists():
                     try:
                         with open(full_path, 'r') as f:
@@ -146,7 +179,8 @@ class ConfigValidator:
             model_warnings = []
             
             for file_path in self.required_files['models']:
-                full_path = self.base_dir / file_path
+                # Models are in writable location (downloaded)
+                full_path = get_writable_path(file_path)
                 if full_path.exists():
                     # Check file size (models should be large)
                     file_size = full_path.stat().st_size
@@ -189,7 +223,8 @@ class ConfigValidator:
     def validate_database(self) -> Tuple[bool, str]:
         """Validate database connectivity and schema"""
         try:
-            db_path = self.base_dir / "data" / "clinic_data.db"
+            # Database is in writable location
+            db_path = get_writable_path("data/clinic_data.db")
             
             if not db_path.exists():
                 # Database doesn't exist, that's okay for first run

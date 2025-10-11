@@ -22,10 +22,24 @@ except ImportError:
     SUPABASE_AVAILABLE = False
     print("Warning: Supabase not available. Remote logging disabled.")
 
-# Import configuration
+# Import configuration using proper resource path
 try:
     import json
-    with open('config/supabase_config.json', 'r') as f:
+    import sys
+    from pathlib import Path
+    
+    # Get proper resource path
+    try:
+        from app_paths import get_resource_path
+        config_path = get_resource_path("config/supabase_config.json")
+    except ImportError:
+        # Fallback
+        if getattr(sys, '_MEIPASS', None):
+            config_path = Path(sys._MEIPASS) / "config/supabase_config.json"
+        else:
+            config_path = Path(__file__).parent / "config/supabase_config.json"
+    
+    with open(config_path, 'r') as f:
         config = json.load(f)
     SUPABASE_URL = config.get('supabase_url')
     SUPABASE_KEY = config.get('supabase_anon_key')
