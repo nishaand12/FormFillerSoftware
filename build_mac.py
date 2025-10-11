@@ -254,11 +254,10 @@ class SimpleMacBuilder:
         return self._customize_app_bundle(self.installer_name)
     
     
-    def create_dmg(self) -> bool:
-        """Create DMG installer"""
-        self._log_progress("Creating DMG installer", "DMG Creation")
+    def bundle_app_into_installer(self) -> bool:
+        """Bundle the main app inside the installer (must happen BEFORE signing)"""
+        self._log_progress("Bundling main app into installer", "Bundling")
         
-        # First, bundle the main app inside the installer
         installer_app = self.dist_dir / f"{self.installer_name}.app"
         main_app = self.dist_dir / f"{self.app_name}.app"
         
@@ -278,9 +277,22 @@ class SimpleMacBuilder:
         if bundled_app_path.exists():
             shutil.rmtree(bundled_app_path)
         
-        self._log_progress(f"Bundling {self.app_name}.app into installer...")
+        self._log_progress(f"Copying {self.app_name}.app into installer...")
         shutil.copytree(main_app, bundled_app_path)
-        self._log_progress(f"✅ Main app bundled into installer")
+        self._log_progress(f"✅ Main app bundled into installer successfully")
+        
+        return True
+    
+    def create_dmg(self) -> bool:
+        """Create DMG installer"""
+        self._log_progress("Creating DMG installer", "DMG Creation")
+        
+        # Installer should already have main app bundled at this point
+        installer_app = self.dist_dir / f"{self.installer_name}.app"
+        
+        if not installer_app.exists():
+            self._log_progress("Installer app not found", "ERROR")
+            return False
         
         # Create DMG contents
         if self.dmg_dir.exists():
@@ -463,17 +475,24 @@ For support, visit: https://physioclinic.com/support
         return True
     
     def sign_applications(self) -> bool:
-        """Sign both main app and installer app"""
+        """Sign both main app and installer app (installer must already have main app bundled)"""
         self._log_progress("Signing applications", "Code Signing")
         
-        # Sign main app
+        # Sign main app first (it's bundled inside installer, but we sign it standalone too)
         main_app_path = self.dist_dir / f"{self.app_name}.app"
         if main_app_path.exists():
             if not self.sign_app(main_app_path):
                 return False
         
-        # Sign installer app
+        # Sign the bundled main app inside installer
         installer_app_path = self.dist_dir / f"{self.installer_name}.app"
+        bundled_main_app = installer_app_path / "Contents" / "Resources" / f"{self.app_name}.app"
+        if bundled_main_app.exists():
+            self._log_progress("Signing bundled app inside installer...")
+            if not self.sign_app(bundled_main_app):
+                return False
+        
+        # Sign installer app last (after its contents are signed)
         if installer_app_path.exists():
             if not self.sign_app(installer_app_path):
                 return False
@@ -507,6 +526,7 @@ For support, visit: https://physioclinic.com/support
             ("Clean Build Directories", self.clean_build_dirs),
             ("Build Main Application", self.build_main_app),
             ("Build Installer Application", self.build_installer_app),
+            ("Bundle App into Installer", self.bundle_app_into_installer),  # Must be before signing!
             ("Sign Applications", self.sign_applications),
             ("Notarize Applications", self.notarize_applications),
             ("Create DMG Installer", self.create_dmg),
