@@ -272,11 +272,14 @@
             <p>Open Terminal (Applications → Utilities → Terminal) and paste:</p>
             <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                 xattr -cr ~/Downloads/PhysioClinicAssistant-*.dmg
-                OR
+            </div>
+            
+            <p>Press Enter. Now open the DMG file normally!</p>
+            <p>Once you have dragged the application to your applications folder, enter the below code in the terminal.</p>
+            <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                 xattr -cr /Applications/PhysioClinicAssistant.app
             </div>
-            <p>Press Enter. Now open the DMG file normally!</p>
-            
+            <p>Press Enter. Now right-click the application and click on Open!</p>
             <h3 style="margin-top: 20px;">Why This Happens</h3>
             <p>macOS blocks unsigned apps downloaded from the internet. The command above removes the security flag. This is safe - just make sure you trust the source! Production builds will be signed by Apple and won't need this.</p>
             
