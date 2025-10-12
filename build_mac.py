@@ -613,26 +613,55 @@ Thank you for using Physio Clinic Assistant!
         return True
     
     def sign_app(self, app_path: Path) -> bool:
-        """Sign the application with code signing certificate"""
-        if not self.signing_identity:
-            self._log_progress("No signing identity provided - skipping code signing", "WARNING")
-            return True
-        
+        """Sign the application with code signing certificate or ad-hoc signing"""
         self._log_progress(f"Signing {app_path.name}", "Code Signing")
+        
+        # Check if entitlements file exists
+        entitlements_file = Path("entitlements.plist")
+        if not entitlements_file.exists():
+            self._log_progress("WARNING - entitlements.plist not found", "WARNING")
+        
+        # Use provided signing identity or ad-hoc signing (-)
+        # Ad-hoc signing (with -) allows the app to request permissions without a certificate
+        signing_identity = self.signing_identity if self.signing_identity else "-"
+        
+        if signing_identity == "-":
+            self._log_progress("Using ad-hoc code signing (allows permission dialogs)")
+        
+        # Remove quarantine attributes first
+        subprocess.run(["xattr", "-cr", str(app_path)], capture_output=True, check=False)
+        
+        # Sign all dylibs and frameworks first
+        for lib_pattern in ["*.dylib", "*.so"]:
+            libs = list(app_path.rglob(lib_pattern))
+            for lib in libs:
+                cmd = [
+                    "codesign", "--force", "--sign", signing_identity,
+                    "--options", "runtime"
+                ]
+                if entitlements_file.exists():
+                    cmd.extend(["--entitlements", str(entitlements_file)])
+                cmd.append(str(lib))
+                subprocess.run(cmd, capture_output=True, check=False)
         
         # Sign the app bundle
         cmd = [
-            "codesign", "--force", "--deep", "--sign", self.signing_identity,
+            "codesign", "--force", "--deep", "--sign", signing_identity,
             "--options", "runtime",
-            "--timestamp",
-            str(app_path)
         ]
+        
+        # Add entitlements if available
+        if entitlements_file.exists():
+            cmd.extend(["--entitlements", str(entitlements_file)])
+            self._log_progress("Including entitlements.plist")
+        
+        cmd.append(str(app_path))
         
         if not self._run_with_timeout(cmd, timeout=300, description=f"Sign {app_path.name}"):
             return False
         
         # Verify the signature
-        cmd = ["codesign", "--verify", "--verbose", str(app_path)]
+        cmd = ["codesign", "--verify", "--verbose=4", str(app_path)]
         if not self._run_with_timeout(cmd, timeout=60, description=f"Verify {app_path.name}"):
             return False
         
