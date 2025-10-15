@@ -656,13 +656,56 @@ class PhysioApp:
             print("Error checking models")
     
     def download_models(self):
-        """Download required models"""
+        """Download required models with progress dialog"""
         try:
             print("Downloading models...")
-            self.root.update()
+            
+            # Create progress dialog
+            progress_window = tk.Toplevel(self.root)
+            progress_window.title("Downloading Models")
+            progress_window.geometry("500x150")
+            progress_window.resizable(False, False)
+            progress_window.transient(self.root)
+            
+            # Center the window
+            progress_window.update_idletasks()
+            x = (progress_window.winfo_screenwidth() // 2) - (500 // 2)
+            y = (progress_window.winfo_screenheight() // 2) - (150 // 2)
+            progress_window.geometry(f"+{x}+{y}")
+            
+            # Progress frame
+            frame = ttk.Frame(progress_window, padding="20")
+            frame.pack(fill="both", expand=True)
+            
+            status_var = tk.StringVar(value="Preparing download...")
+            status_label = ttk.Label(frame, textvariable=status_var, font=("Arial", 10))
+            status_label.pack(pady=(0, 10))
+            
+            progress_bar = ttk.Progressbar(frame, mode='determinate', maximum=100, length=450)
+            progress_bar.pack(pady=(0, 10))
+            
+            def update_progress(percent, message):
+                """Update progress bar and status from download thread"""
+                self.root.after(0, lambda: progress_bar.config(value=percent))
+                self.root.after(0, lambda: status_var.set(message))
+            
+            def download_thread_func():
+                """Download models in background thread"""
+                try:
+                    # Create a new downloader with progress callback
+                    downloader = ModelDownloader(progress_callback=update_progress)
+                    downloader.download_all_models()
+                    
+                    self.root.after(0, lambda: print("Models downloaded successfully"))
+                    self.root.after(0, lambda: messagebox.showinfo("Success", "Models downloaded successfully!"))
+                    self.root.after(0, progress_window.destroy)
+                except Exception as e:
+                    self.root.after(0, lambda: messagebox.showerror("Error", f"Error downloading models: {str(e)}"))
+                    self.root.after(0, lambda: print("Error downloading models"))
+                    self.root.after(0, progress_window.destroy)
             
             # Run download in separate thread
-            download_thread = threading.Thread(target=self._download_models_thread)
+            download_thread = threading.Thread(target=download_thread_func)
             download_thread.daemon = True
             download_thread.start()
             
@@ -672,16 +715,6 @@ class PhysioApp:
         except Exception as e:
             messagebox.showerror("Error", f"Error starting model download: {str(e)}")
             print("Error downloading models")
-    
-    def _download_models_thread(self):
-        """Download models in background thread"""
-        try:
-            self.model_downloader.download_all_models()
-            self.root.after(0, lambda: print("Models downloaded successfully"))
-            self.root.after(0, lambda: messagebox.showinfo("Success", "Models downloaded successfully!"))
-        except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Error downloading models: {str(e)}"))
-            self.root.after(0, lambda: print("Error downloading models"))
     
     def refresh_audio_devices(self):
         """Refresh the list of available audio devices"""
@@ -1753,38 +1786,44 @@ def run_first_run_setup(root) -> bool:
         status_label = ttk.Label(progress_frame, textvariable=status_var)
         status_label.pack()
         
-        progress = ttk.Progressbar(progress_frame, mode='indeterminate')
+        progress = ttk.Progressbar(progress_frame, mode='determinate', maximum=100)
         progress.pack(fill="x", pady=(10, 0))
         
         # Download flag
         download_complete = {'success': False}
         
+        def update_progress(percent, message):
+            """Update progress bar and status message from download thread"""
+            root.after(0, lambda: progress.config(value=percent))
+            root.after(0, lambda: status_var.set(message))
+        
         def start_download():
             """Start model download in background thread"""
             download_btn.config(state="disabled")
             skip_btn.config(state="disabled")
-            progress.start()
+            progress.config(value=0)
             status_var.set("Downloading models... This may take 10-15 minutes")
             
             def download_thread():
                 try:
                     from model_downloader import ModelDownloader
-                    downloader = ModelDownloader()
+                    
+                    # Create downloader with progress callback
+                    downloader = ModelDownloader(progress_callback=update_progress)
                     
                     # Download all models
-                    status_var.set("Downloading models... Please wait...")
                     downloader.download_all_models()
                     
                     # Complete setup
                     root.after(0, lambda: status_var.set("Finalizing setup..."))
-                    root.after(0, progress.stop)
+                    root.after(0, lambda: progress.config(value=100))
                     
                     # Complete setup in main thread
                     root.after(100, lambda: complete_setup())
                     
                 except Exception as e:
                     root.after(0, lambda: status_var.set(f"Error: {e}"))
-                    root.after(0, progress.stop)
+                    root.after(0, lambda: progress.config(value=0))
                     root.after(0, lambda: messagebox.showerror("Download Failed", 
                         f"Failed to download models: {e}\n\nYou can try downloading later from the Tools menu."))
                     download_complete['success'] = False

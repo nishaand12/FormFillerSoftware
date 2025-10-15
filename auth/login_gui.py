@@ -1,6 +1,6 @@
 """
 Login and Registration GUI for the Physiotherapy Clinic Assistant
-Handles user authentication, registration, and subscription selection
+Handles user authentication and registration
 """
 
 import tkinter as tk
@@ -8,7 +8,6 @@ from tkinter import ttk, messagebox
 import threading
 from typing import Callable, Optional, Tuple
 from .auth_manager import AuthManager
-from .subscription_checker import SubscriptionChecker
 
 
 class LoginGUI:
@@ -20,7 +19,6 @@ class LoginGUI:
         
         # Initialize authentication components
         self.auth_manager = AuthManager()
-        self.subscription_checker = SubscriptionChecker(self.auth_manager)
         
         # GUI state
         self.current_mode = "login"  # "login", "register", "forgot_password"
@@ -195,9 +193,6 @@ class LoginGUI:
                                                width=40, font=("Arial", 11), show="*")
         self.register_confirm_entry.pack(pady=(0, 20))
         
-        # Subscription selection
-        self.create_subscription_selection()
-        
         # Register button
         self.register_submit_btn = ttk.Button(self.register_form, text="Create Account", 
                                              command=self.handle_registration, style="Accent.TButton")
@@ -206,33 +201,6 @@ class LoginGUI:
         # Bind Enter key
         self.register_confirm_entry.bind('<Return>', lambda e: self.handle_registration())
     
-    def create_subscription_selection(self):
-        """Create subscription selection interface"""
-        # Subscription info frame
-        sub_frame = ttk.LabelFrame(self.register_form, text="Subscription Plan", padding="10")
-        sub_frame.pack(fill="x", pady=(0, 20))
-        
-        # Single subscription option (as requested)
-        self.subscription_var = tk.StringVar(value="basic")
-        
-        # Premium plan option
-        plan_frame = ttk.Frame(sub_frame)
-        plan_frame.pack(fill="x")
-        
-        ttk.Radiobutton(plan_frame, text="Premium Plan", variable=self.subscription_var, 
-                       value="premium").pack(anchor="w")
-        
-        # Plan details
-        plan_details = ttk.Label(plan_frame, 
-                                text="• Unlimited appointments\n• All form types\n• $25/month",
-                                font=("Arial", 9), foreground="gray")
-        plan_details.pack(anchor="w", padx=(20, 0), pady=(5, 0))
-        
-        # Trial info
-        trial_info = ttk.Label(sub_frame, 
-                              text="14-day free trial included with all plans",
-                              font=("Arial", 9), foreground="blue")
-        trial_info.pack(pady=(10, 0))
     
     def create_forgot_password_form(self):
         """Create forgot password form"""
@@ -406,7 +374,6 @@ class LoginGUI:
         clinic_name = self.register_clinic_var.get().strip()
         password = self.register_password_var.get()
         confirm_password = self.register_confirm_var.get()
-        subscription_plan = self.subscription_var.get()
         
         # Basic validation
         if not full_name:
@@ -429,8 +396,14 @@ class LoginGUI:
             self.register_password_entry.focus()
             return
         
+        # Check password match with smart whitespace detection
         if password != confirm_password:
-            messagebox.showerror("Registration Error", "Passwords do not match")
+            # Check if they would match without leading/trailing whitespace
+            if password.strip() == confirm_password.strip() and (password != password.strip() or confirm_password != confirm_password.strip()):
+                messagebox.showerror("Registration Error", 
+                    "Passwords do not match.\n\nTip: Check for extra spaces at the beginning or end of your password.")
+            else:
+                messagebox.showerror("Registration Error", "Passwords do not match")
             self.register_confirm_entry.focus()
             return
         
@@ -451,12 +424,11 @@ class LoginGUI:
         
         # Run registration in background thread
         thread = threading.Thread(target=self._registration_thread, 
-                                 args=(email, password, full_name, clinic_name, subscription_plan))
+                                 args=(email, password, full_name, clinic_name))
         thread.daemon = True
         thread.start()
     
-    def _registration_thread(self, email: str, password: str, full_name: str, 
-                           clinic_name: str, subscription_plan: str):
+    def _registration_thread(self, email: str, password: str, full_name: str, clinic_name: str):
         """Registration thread"""
         try:
             success, message = self.auth_manager.register_user(email, password, full_name, clinic_name)

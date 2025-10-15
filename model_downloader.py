@@ -12,7 +12,7 @@ import sys
 
 
 class ModelDownloader:
-    def __init__(self):
+    def __init__(self, progress_callback=None):
         # Use proper writable path for models
         try:
             from app_paths import get_writable_path
@@ -26,6 +26,8 @@ class ModelDownloader:
                 self.models_dir = "models"
         
         self.cache_dir = os.path.expanduser("~/.cache/huggingface")
+        self.progress_callback = progress_callback
+        self.current_model_progress = 0
     
     def check_models(self):
         """Check if all required models are downloaded"""
@@ -54,15 +56,23 @@ class ModelDownloader:
         # Create models directory (get_writable_path already creates it, but ensure it exists)
         os.makedirs(self.models_dir, exist_ok=True)
         
-        # Download Qwen model for data extraction
+        # Download Qwen model for data extraction (33% of total)
+        if self.progress_callback:
+            self.progress_callback(0, "Downloading Qwen 4B model...")
         self._download_qwen_model()
         
-        # Download Qwen3-1.7B model for efficient data extraction
+        # Download Qwen3-1.7B model for efficient data extraction (66% of total)
+        if self.progress_callback:
+            self.progress_callback(33, "Downloading Qwen 1.7B model...")
         self._download_qwen3_1_7b_model()
         
-        # Download Whisper model (faster-whisper will handle this)
+        # Download Whisper model (faster-whisper will handle this) (100% of total)
+        if self.progress_callback:
+            self.progress_callback(66, "Downloading Whisper model...")
         self._download_whisper_model()
         
+        if self.progress_callback:
+            self.progress_callback(100, "All models downloaded!")
         print("All models downloaded successfully!")
     
 
@@ -84,11 +94,30 @@ class ModelDownloader:
         try:
             # Download only the specific model file we need
             from huggingface_hub import hf_hub_download
+            from tqdm.auto import tqdm
+            
+            # Create a custom progress bar
+            class ProgressCallback:
+                def __init__(self, callback):
+                    self.callback = callback
+                    self.pbar = None
+                
+                def __call__(self, current, total):
+                    if self.pbar is None:
+                        self.pbar = tqdm(total=total, unit='B', unit_scale=True, desc="Qwen 4B")
+                    
+                    self.pbar.update(current - self.pbar.n)
+                    
+                    if self.callback and total > 0:
+                        # Report progress within this model's portion (0-33%)
+                        percent = int((current / total) * 33)
+                        self.callback(percent, f"Downloading Qwen 4B model... {percent}%")
             
             downloaded_path = hf_hub_download(
                 repo_id=model_name,
                 filename=model_filename,
-                local_dir=self.models_dir
+                local_dir=self.models_dir,
+                resume_download=True
             )
             
             # Move to the expected location
@@ -116,11 +145,30 @@ class ModelDownloader:
         try:
             # Download only the specific model file we need
             from huggingface_hub import hf_hub_download
+            from tqdm.auto import tqdm
+            
+            # Create a custom progress bar
+            class ProgressCallback:
+                def __init__(self, callback):
+                    self.callback = callback
+                    self.pbar = None
+                
+                def __call__(self, current, total):
+                    if self.pbar is None:
+                        self.pbar = tqdm(total=total, unit='B', unit_scale=True, desc="Qwen 1.7B")
+                    
+                    self.pbar.update(current - self.pbar.n)
+                    
+                    if self.callback and total > 0:
+                        # Report progress within this model's portion (33-66%)
+                        percent = 33 + int((current / total) * 33)
+                        self.callback(percent, f"Downloading Qwen 1.7B model... {percent}%")
             
             downloaded_path = hf_hub_download(
                 repo_id=model_name,
                 filename=model_filename,
-                local_dir=self.models_dir
+                local_dir=self.models_dir,
+                resume_download=True
             )
             
             # Move to the expected location

@@ -267,8 +267,9 @@ class InputValidator:
         if not password_valid:
             errors.append(password_error)
         
-        # Validate password confirmation
-        if data.get('password') != data.get('confirm_password'):
+        # Validate password confirmation (only if confirm_password is provided)
+        confirm_password = data.get('confirm_password')
+        if confirm_password is not None and confirm_password != '' and data.get('password') != confirm_password:
             errors.append("Passwords do not match")
         
         # Validate subscription plan
@@ -321,14 +322,19 @@ class InputValidator:
         Returns:
             Sanitized registration data
         """
-        return {
+        sanitized = {
             'full_name': self.sanitize_string(data.get('full_name', ''), 50),
             'email': self.sanitize_string(data.get('email', ''), 254).lower(),
             'clinic_name': self.sanitize_string(data.get('clinic_name', ''), 100),
             'password': data.get('password', ''),  # Don't sanitize password
-            'confirm_password': data.get('confirm_password', ''),  # Don't sanitize password
             'subscription_plan': data.get('subscription_plan', 'trial')
         }
+        
+        # Only include confirm_password if it was provided
+        if 'confirm_password' in data:
+            sanitized['confirm_password'] = data.get('confirm_password', '')
+        
+        return sanitized
     
     def sanitize_login_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
