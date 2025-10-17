@@ -251,18 +251,15 @@ class OCF18FormFiller:
             processed = 0
             
             # Process text fields - only for fields that exist in merged data
-            text_payload: Dict[str, Any] = {}
+            # Fill individually (not batched) for ARM64 compatibility
             for key, value in merged.items():
                 if key in self.field_map and self.field_types.get(key, "text") == "text":
                     pdf_key = self.field_map[key].strip('()')
                     if pdf_key in available:
                         text_value = "" if value is None else str(value)
-                        text_payload[pdf_key] = text_value
+                        form.fill({pdf_key: text_value})
                         processed += 1
                         print(f"  📝 Text field: {key} -> {pdf_key} = {text_value}")
-            
-            if text_payload:
-                form.fill(text_payload)
 
             # Process checkboxes (yes/no fields) - only for fields that exist in merged data
             yes_no_fields = set(self.checkbox_groups.get("yes_no_fields", []))

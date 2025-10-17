@@ -82,16 +82,15 @@ class OCF23FormFiller:
             available = form.data
 
             processed = 0
-            # Text fields
-            text_payload: Dict[str, Any] = {}
+            # Text fields - Fill individually (not batched) for ARM64 compatibility
             for key, value in merged.items():
                 if key in self.field_map and self.field_types.get(key, "text") == "text":
                     pdf_key = self.field_map[key].strip('()')
                     if pdf_key in available:
-                        text_payload[pdf_key] = "" if value is None else str(value)
+                        text_value = "" if value is None else str(value)
+                        form.fill({pdf_key: text_value})
                         processed += 1
-            if text_payload:
-                form.fill(text_payload)
+                        print(f"  📝 Text field: {key} -> {pdf_key} = {text_value}")
 
             # Yes/No checkboxes
             yes_no = set(self.checkbox_groups.get("yes_no_fields", []))

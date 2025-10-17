@@ -54,7 +54,7 @@ PyJWT==2.10.1
 PyMuPDF==1.26.4
 pypdf==6.0.0
 PyPDF2==3.0.1
-PyPDFForm==3.4.0
+PyPDFForm==3.5.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 PyYAML==6.0.2
