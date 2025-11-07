@@ -9,7 +9,13 @@ import threading
 import time
 import logging
 from typing import Optional, Dict, Any
-from llama_cpp import Llama
+
+from runtime.hardware_profile import (
+    get_hardware_profile,
+    get_llama_runtime_config,
+)
+from telemetry import log_event
+from inference_worker import InferenceWorkerController, ProcessRequest
 
 
 class ModelManager:
@@ -37,20 +43,28 @@ class ModelManager:
         if self._initialized:
             return
             
-        self._model = None
         self._model_type = None
         self._model_path = None
         self._is_loading = False
         self._load_error = None
         self._last_used = 0
         self._access_count = 0
+        self._runtime_config = None
+        self._hardware_profile = get_hardware_profile()
         
         # Setup logging
         self.setup_logging()
+        self._worker = InferenceWorkerController(self.logger)
         
         # Mark as initialized
         self._initialized = True
-        self.logger.info("ModelManager singleton initialized")
+        self.logger.info(
+            "ModelManager singleton initialized on %s (%s cores, %.2f GB RAM, Metal=%s)",
+            self._hardware_profile.architecture,
+            self._hardware_profile.physical_cores,
+            self._hardware_profile.memory_gb,
+            self._hardware_profile.metal_available,
+        )
     
     def setup_logging(self):
         """Setup logging for the model manager"""
@@ -63,28 +77,6 @@ class ModelManager:
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
-    
-    def get_model(self, model_type: str = "qwen3-4b") -> Optional[Llama]:
-        """
-        Get the shared model instance. Thread-safe and lazy-loading.
-        
-        Args:
-            model_type: Type of model to load ("qwen3-4b", "qwen3-1.7b", "tinyllama", etc.)
-            
-        Returns:
-            Llama model instance or None if loading failed
-        """
-        with self._model_lock:
-            # Check if we need to load a different model type
-            if self._model is None or self._model_type != model_type:
-                if not self._load_model(model_type):
-                    return None
-            
-            # Update access tracking
-            self._last_used = time.time()
-            self._access_count += 1
-            
-            return self._model
     
     def _load_model(self, model_type: str) -> bool:
         """
@@ -99,27 +91,16 @@ class ModelManager:
         # Prevent multiple simultaneous loading attempts
         if self._is_loading:
             self.logger.info("Model loading already in progress, waiting...")
-            # Wait for loading to complete
             while self._is_loading:
                 time.sleep(0.1)
-            return self._model is not None and self._model_type == model_type
-        
+            return self._model_type == model_type and self._load_error is None
+
         self._is_loading = True
         self._load_error = None
         
         try:
             self.logger.info(f"Loading {model_type} model...")
-            
-            # Clean up existing model if switching types
-            if self._model is not None and self._model_type != model_type:
-                self.logger.info(f"Switching from {self._model_type} to {model_type} model")
-                try:
-                    del self._model
-                    self._model = None
-                    self.logger.info("Previous model cleaned up successfully")
-                except Exception as e:
-                    self.logger.warning(f"Error cleaning up previous model: {e}")
-            
+
             # Determine model path using proper writable location
             try:
                 from app_paths import get_writable_path
@@ -152,33 +133,55 @@ class ModelManager:
                 self._load_error = error_msg
                 return False
             
-            # Load the model
-            self._model = Llama(
-                model_path=model_path,
-                n_ctx=2048,
-                n_threads=1,  # Single thread to prevent conflicts
-                n_gpu_layers=0,  # CPU only for compatibility
-                verbose=False
+            runtime_cfg = get_llama_runtime_config(model_type)
+            self._runtime_config = runtime_cfg
+            self.logger.info(
+                "Using runtime config: n_ctx=%s n_threads=%s n_gpu_layers=%s max_tokens=%s",
+                runtime_cfg.n_ctx,
+                runtime_cfg.n_threads,
+                runtime_cfg.n_gpu_layers,
+                runtime_cfg.max_tokens,
             )
-            
+
+            result = self._worker.ensure_model(
+                model_type,
+                model_path,
+                runtime_cfg,
+            )
+            if not result.get("success"):
+                self._load_error = result.get("error", "Unknown worker load failure")
+                self.logger.error("Worker failed to load model: %s", self._load_error)
+                log_event("model_load", {
+                    "model_type": model_type,
+                    "success": False,
+                    "error": self._load_error,
+                })
+                return False
+
             self._model_type = model_type
             self._model_path = model_path
             
             self.logger.info(f"{model_type} model loaded successfully from {model_path}")
+            log_event("model_load", {
+                "model_type": model_type,
+                "success": True,
+                "n_ctx": runtime_cfg.n_ctx,
+                "n_threads": runtime_cfg.n_threads,
+                "n_gpu_layers": runtime_cfg.n_gpu_layers,
+            })
             return True
             
         except Exception as e:
             error_msg = f"Failed to load {model_type} model: {str(e)}"
             self.logger.error(error_msg)
             self._load_error = error_msg
-            self._model = None
             return False
             
         finally:
             self._is_loading = False
     
     def process_prompt(self, prompt: str, model_type: str = "qwen3-4b", 
-                      max_tokens: int = 1024, temperature: float = 0.1, 
+                      max_tokens: Optional[int] = None, temperature: float = 0.1, 
                       stop_sequences: list = None) -> Dict[str, Any]:
         """
         Process a prompt using the shared model. Thread-safe inference.
@@ -197,33 +200,86 @@ class ModelManager:
             stop_sequences = ["Transcript:", "Rules:"]
         
         with self._model_lock:
+            if not self._load_model(model_type):
+                return {
+                    'success': False,
+                    'error': f"Model not available: {self._load_error or 'Unknown error'}"
+                }
+
+            runtime_cfg = get_llama_runtime_config(
+                model_type,
+                transcript_chars=len(prompt),
+                requested_max_tokens=max_tokens,
+            )
+
+            request = ProcessRequest(
+                model_type=model_type,
+                prompt=prompt,
+                max_tokens=runtime_cfg.max_tokens,
+                temperature=temperature,
+                stop_sequences=stop_sequences,
+            )
+
+            start_time = time.time()
             try:
-                # Get the model
-                model = self.get_model(model_type)
-                if model is None:
+                self.logger.info(
+                    "Processing prompt with %s model (max_tokens=%s)",
+                    model_type,
+                    runtime_cfg.max_tokens,
+                )
+                response = self._worker.process_prompt(request)
+                duration_ms = int((time.time() - start_time) * 1000)
+                self._last_used = time.time()
+                self._access_count += 1
+
+                if not response.get('success'):
+                    log_event("model_inference", {
+                        "model_type": model_type,
+                        "success": False,
+                        "duration_ms": duration_ms,
+                        "error": response.get('error'),
+                        "max_tokens": runtime_cfg.max_tokens,
+                    })
                     return {
                         'success': False,
-                        'error': f"Model not available: {self._load_error or 'Unknown error'}"
+                        'error': response.get('error', 'Unknown inference error')
                     }
-                
-                # Process the prompt
-                self.logger.info(f"Processing prompt with {model_type} model...")
-                response = model(
-                    prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    stop=stop_sequences
-                )
-                
+
+                log_event("model_inference", {
+                    "model_type": model_type,
+                    "success": True,
+                    "duration_ms": duration_ms,
+                    "max_tokens": runtime_cfg.max_tokens,
+                })
+
                 return {
                     'success': True,
-                    'response': response,
-                    'text': response['choices'][0]['text'].strip() if response['choices'] else ""
+                    'response': response.get('response'),
+                    'text': response.get('text', "")
                 }
-                
+            except TimeoutError as exc:
+                self.logger.error("Inference timed out: %s", exc)
+                self._worker.shutdown()
+                self._worker = InferenceWorkerController(self.logger)
+                log_event("model_inference", {
+                    "model_type": model_type,
+                    "success": False,
+                    "duration_ms": int((time.time() - start_time) * 1000),
+                    "error": "timeout",
+                })
+                return {
+                    'success': False,
+                    'error': f"Inference timeout: {exc}"
+                }
             except Exception as e:
                 error_msg = f"Model inference failed: {str(e)}"
                 self.logger.error(error_msg)
+                log_event("model_inference", {
+                    "model_type": model_type,
+                    "success": False,
+                    "duration_ms": int((time.time() - start_time) * 1000),
+                    "error": str(e),
+                })
                 return {
                     'success': False,
                     'error': error_msg
@@ -235,27 +291,22 @@ class ModelManager:
             return {
                 'model_type': self._model_type,
                 'model_path': self._model_path,
-                'is_loaded': self._model is not None,
+                'is_loaded': self._model_type is not None and self._load_error is None,
                 'is_loading': self._is_loading,
                 'load_error': self._load_error,
                 'last_used': self._last_used,
                 'access_count': self._access_count,
-                'memory_usage_mb': self._get_memory_usage() if self._model else 0
+                'memory_usage_mb': self._get_memory_usage()
             }
     
     def _get_memory_usage(self) -> float:
         """Estimate memory usage of the model in MB"""
-        try:
-            if self._model and hasattr(self._model, '_model'):
-                # Rough estimate based on model size
-                if self._model_type == "qwen3-4b":
-                    return 4096.0  # ~4GB for Qwen3-4B
-                elif self._model_type == "qwen3-1.7b":
-                    return 2048.0  # ~2GB for Qwen3-1.7B
-                else:
-                    return 2048.0  # Default estimate
-        except:
-            pass
+        if self._model_type == "qwen3-4b":
+            return 4096.0
+        if self._model_type == "qwen3-1.7b":
+            return 2048.0
+        if self._model_type:
+            return 2048.0
         return 0.0
     
     def reload_model(self, model_type: str = None) -> bool:
@@ -270,43 +321,29 @@ class ModelManager:
         """
         with self._model_lock:
             if model_type is None:
-                model_type = self._model_type or "qwen"
+                model_type = self._model_type or "qwen3-4b"
             
             self.logger.info(f"Reloading {model_type} model...")
-            
-            # Clean up existing model
-            if self._model is not None:
-                try:
-                    del self._model
-                    self._model = None
-                except:
-                    pass
-            
-            # Reset state
+
+            self._worker.reload_model()
+
             self._model_type = None
             self._model_path = None
             self._load_error = None
-            
-            # Load new model
+
             return self._load_model(model_type)
     
     def cleanup(self):
         """Clean up the model and resources"""
         with self._model_lock:
             self.logger.info("Cleaning up ModelManager...")
-            
-            if self._model is not None:
-                try:
-                    del self._model
-                    self._model = None
-                    self.logger.info("Model cleaned up successfully")
-                except Exception as e:
-                    self.logger.warning(f"Error during model cleanup: {e}")
-            
+            self._worker.shutdown()
             self._model_type = None
             self._model_path = None
             self._load_error = None
             self._is_loading = False
+            self._runtime_config = None
+            self._worker = InferenceWorkerController(self.logger)
     
     def health_check(self) -> Dict[str, Any]:
         """
@@ -317,18 +354,9 @@ class ModelManager:
         """
         with self._model_lock:
             try:
-                if self._model is None:
-                    return {
-                        'status': 'unhealthy',
-                        'reason': 'No model loaded',
-                        'load_error': self._load_error
-                    }
-                
-                # Try a simple inference to test model health
-                test_prompt = "Hello"
-                response = self._model(test_prompt, max_tokens=5, temperature=0.1)
-                
-                if response and 'choices' in response:
+                healthy = self._worker.health_check()
+
+                if healthy:
                     return {
                         'status': 'healthy',
                         'model_type': self._model_type,
@@ -338,8 +366,8 @@ class ModelManager:
                 else:
                     return {
                         'status': 'unhealthy',
-                        'reason': 'Model inference failed',
-                        'response': response
+                        'reason': 'Worker not ready',
+                        'load_error': self._load_error
                     }
                     
             except Exception as e:

@@ -167,7 +167,6 @@ Extract transcript data and return ONLY the JSON object:"""
                 result = model_manager.process_prompt(
                     prompt=prompt,
                     model_type=self.model_type,
-                    max_tokens=2048,  # Increased for complete JSON
                     temperature=0.0,  # More deterministic output
                     stop_sequences=["Transcript:", "Rules:", "```", "```json", "}\n```", "}\n\n", "}\n\n```"]
                 )
@@ -175,14 +174,14 @@ Extract transcript data and return ONLY the JSON object:"""
                 result = model_manager.process_prompt(
                     prompt=prompt,
                     model_type=self.model_type,
-                    max_tokens=1024,
                     temperature=0.1,
                     stop_sequences=["Transcript:", "Rules:"]
                 )
             
             if not result['success']:
-                print(f"Warning: Model inference failed: {result['error']}")
-                return {}
+                error_message = result.get('error', 'Unknown inference failure')
+                print(f"Warning: Model inference failed: {error_message}")
+                raise RuntimeError(error_message)
             
             response_text = result['text']
             print(f"Model response length: {len(response_text)} characters")

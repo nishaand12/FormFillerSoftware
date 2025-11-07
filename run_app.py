@@ -11,8 +11,12 @@ import atexit
 import multiprocessing
 import multiprocessing.resource_tracker
 import traceback
+import shutil
 from datetime import datetime
 from pathlib import Path
+
+from runtime.hardware_profile import get_hardware_profile, recommended_model_type
+from telemetry import log_event
 
 # Set OpenMP environment variables to prevent runtime conflicts
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -121,6 +125,38 @@ def check_environment():
     for path in sys.path[:10]:  # First 10 paths
         log_startup(f"  - {path}")
     
+    ffmpeg_path = shutil.which("ffmpeg")
+    ffprobe_path = shutil.which("ffprobe")
+    log_startup(f"ffmpeg binary: {ffmpeg_path or '✗ NOT FOUND'}")
+    log_startup(f"ffprobe binary: {ffprobe_path or '✗ NOT FOUND'}")
+
+    profile = get_hardware_profile()
+    log_startup(
+        "Hardware Profile: arch=%s physical_cores=%s logical_cores=%s memory=%.2fGB metal=%s"
+        % (
+            profile.architecture,
+            profile.physical_cores,
+            profile.logical_cores,
+            profile.memory_gb,
+            profile.metal_available,
+        )
+    )
+    log_startup(f"Recommended default model: {recommended_model_type()}")
+
+    log_event(
+        "app_start",
+        {
+            "architecture": profile.architecture,
+            "physical_cores": profile.physical_cores,
+            "logical_cores": profile.logical_cores,
+            "memory_gb": profile.memory_gb,
+            "metal_available": profile.metal_available,
+            "recommended_model": recommended_model_type(),
+            "ffmpeg_present": bool(ffmpeg_path),
+            "ffprobe_present": bool(ffprobe_path),
+        },
+    )
+
     log_startup("=" * 80)
 
 

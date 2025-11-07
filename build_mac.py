@@ -36,7 +36,7 @@ class SimpleMacBuilder:
         
         # Progress tracking
         self.current_step = 0
-        self.total_steps = 6  # Streamlined: clean, build, sign, notarize, dmg, cleanup
+        self.total_steps = 7  # Prepare deps, clean, build, sign, notarize, dmg, cleanup
         self.start_time = time.time()
         
     def _get_version(self) -> str:
@@ -127,6 +127,23 @@ class SimpleMacBuilder:
         
         return True
     
+    def prepare_dependencies(self) -> bool:
+        """Ensure native/universal dependencies are ready before building"""
+        self._log_progress("Preparing universal dependencies", "Dependencies")
+
+        try:
+            from build_support.prepare_universal_env import ensure_universal_runtime
+        except ImportError as exc:
+            self._log_progress(f"Failed to import dependency preparer: {exc}", "ERROR")
+            return False
+
+        success = ensure_universal_runtime()
+        if success:
+            self._log_progress("Universal dependency prep completed", "Dependencies")
+        else:
+            self._log_progress("Universal dependency prep failed", "ERROR")
+        return success
+
     def _prepare_app_icon(self) -> Optional[str]:
         """Prepare application icon, converting PNG to ICNS if needed"""
         try:
@@ -203,6 +220,7 @@ class SimpleMacBuilder:
             "--onedir",    # Use onedir for better compatibility
             "--name", self.app_name,
             "--osx-bundle-identifier", "com.physioclinic.assistant",
+            "--target-arch", "universal2",
         ]
         
         # Add icon if available
@@ -215,6 +233,7 @@ class SimpleMacBuilder:
             "--add-data", "forms:forms",
             "--add-data", "auth:auth",
             "--add-data", "static:static",  # Include static directory with logo
+            "--add-data", "resources:resources",
             # "--add-data", "models:models",  # Exclude models - download separately
             "--add-data", "app_paths.py:.",  # Path helper for writable directories
             "--add-data", "setup_wizard.py:.",
@@ -743,6 +762,7 @@ Thank you for using Physio Clinic Assistant!
         print("=" * 60)
         
         build_steps = [
+            ("Prepare Dependencies", self.prepare_dependencies),
             ("Clean Build Directories", self.clean_build_dirs),
             ("Build Main Application", self.build_main_app),
             ("Sign Application", self.sign_applications),

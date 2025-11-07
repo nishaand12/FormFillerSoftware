@@ -1,0 +1,32 @@
+{
+  "version": "2025-11-07",
+  "targets": [
+    {
+      "label": "Apple M1 Air",
+      "macos": "13.7",
+      "memory_gb": 8,
+      "expected_model": "qwen3-1.7b",
+      "status": "pending"
+    },
+    {
+      "label": "Apple M2 Pro",
+      "macos": "14.5",
+      "memory_gb": 16,
+      "expected_model": "qwen3-4b",
+      "status": "pending"
+    },
+    {
+      "label": "Intel i7",
+      "macos": "12.7",
+      "memory_gb": 16,
+      "expected_model": "qwen3-1.7b",
+      "status": "pending"
+    }
+  ],
+  "checks": [
+    "Transcription duration under 2 minutes",
+    "Extraction completes without stall (<5 minutes)",
+    "Form generation succeeds"
+  ]
+}
+

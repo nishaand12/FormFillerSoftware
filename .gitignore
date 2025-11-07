@@ -64,6 +64,9 @@ docs/downloads/*.dmg
 models/
 *.gguf
 
+# Bundled third-party binaries staged during build
+resources/bin/
+
 # Documentation and guides (keep only README.md and MAC_INSTALLER_README.md)
 *_GUIDE.md
 *_DOCUMENTATION.md

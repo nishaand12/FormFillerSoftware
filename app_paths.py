@@ -31,6 +31,21 @@ def get_resource_path(relative_path: str = "") -> Path:
     return base_path
 
 
+def get_resource_bin_path() -> Path:
+    """Return the resource directory that contains bundled command-line binaries."""
+    bin_path = get_resource_path("resources/bin")
+    bin_path.mkdir(parents=True, exist_ok=True)
+    return bin_path
+
+
+def extend_path_with_resources() -> None:
+    """Ensure the bundled resource/bin directory is present on PATH."""
+    bin_dir = str(get_resource_bin_path())
+    current_path = os.environ.get("PATH", "")
+    if bin_dir not in current_path.split(os.pathsep):
+        os.environ["PATH"] = os.pathsep.join(filter(None, [bin_dir, current_path]))
+
+
 def get_writable_path(relative_path: str = "") -> Path:
     """
     Get a writable path in the user's Application Support directory.

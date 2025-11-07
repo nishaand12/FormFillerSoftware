@@ -34,6 +34,7 @@ from transcriber import Transcriber
 from wsib_data_extractor import WSIBDataExtractor
 from wsib_form_filler import WSIBFormFiller
 from model_downloader import ModelDownloader
+from runtime.hardware_profile import recommended_model_type
 
 from database_manager import DatabaseManager
 from encrypted_database_manager import EncryptedDatabaseManager
@@ -174,8 +175,8 @@ class PhysioApp:
         # Initialize components
         self.recorder = PvRecorderAudioRecorder()
         self.transcriber = Transcriber()
-        # Model selection - can be changed via settings
-        self.current_model_type = "qwen3-4b"  # Default to 4B model for better accuracy
+        # Model selection - adapt to hardware but allow override via settings
+        self.current_model_type = recommended_model_type()
         self.wsib_data_extractor = WSIBDataExtractor(model_type=self.current_model_type)
         self.wsib_form_filler = WSIBFormFiller()
         self.model_downloader = ModelDownloader()

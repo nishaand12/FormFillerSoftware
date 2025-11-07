@@ -25,6 +25,7 @@ from ocf23_form_filler import OCF23FormFiller
 import json
 from database_manager import DatabaseManager
 from model_manager import model_manager
+from runtime.hardware_profile import recommended_model_type
 
 
 class ProcessingStatus(Enum):
@@ -34,6 +35,8 @@ class ProcessingStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    STALLED = "stalled"
+    RETRYING = "retrying"
 
 
 @dataclass
@@ -51,6 +54,9 @@ class ProcessingJob:
     progress: str = ""
     error_message: str = ""
     result_files: List[str] = None
+    attempts: int = 0
+    max_attempts: int = 2
+    stalled_reason: str = ""
     
     def __post_init__(self):
         if self.result_files is None:
@@ -68,12 +74,13 @@ class BackgroundProcessor:
         self.max_workers = max_workers
         
         # Initialize components
+        model_type_default = recommended_model_type()
         self.transcriber = Transcriber()
-        self.extractor = WSIBDataExtractor(model_type="qwen3-4b")  # Default to 4B model
+        self.extractor = WSIBDataExtractor(model_type=model_type_default)
         self.form_filler = WSIBFormFiller()
-        self.ocf18_extractor = OCF18DataExtractor(model_type="qwen3-4b")  # Default to 4B model
+        self.ocf18_extractor = OCF18DataExtractor(model_type=model_type_default)
         self.ocf18_form_filler = OCF18FormFiller()
-        self.ocf23_extractor = OCF23DataExtractor(model_type="qwen3-4b")  # Default to 4B model
+        self.ocf23_extractor = OCF23DataExtractor(model_type=model_type_default)
         self.ocf23_form_filler = OCF23FormFiller()
         
         # Queue and worker management
@@ -217,6 +224,11 @@ class BackgroundProcessor:
         self.job_queue.put(job)
         
         self.logger.info(f"Added job {job_id} to queue. Queue size: {self.job_queue.qsize()}")
+        if self.job_queue.qsize() > self.max_workers:
+            self.logger.warning("Processing backlog detected: queue size exceeds available workers")
+            self._update_progress(job, "Waiting for earlier jobs to finish...")
+        else:
+            self._update_progress(job, "Queued for processing")
         
         # Notify status change
         self._notify_status_change(job)
@@ -226,6 +238,7 @@ class BackgroundProcessor:
     def _process_job(self, job: ProcessingJob):
         """Process a single job through all stages"""
         try:
+            job.attempts += 1
             job.status = ProcessingStatus.PROCESSING
             self._notify_status_change(job)
             
@@ -289,6 +302,15 @@ class BackgroundProcessor:
             
             self.logger.info(f"Job {job.job_id} completed successfully")
             
+        except RuntimeError as e:
+            error_message = str(e)
+            self.logger.error(f"Job {job.job_id} stalled: {error_message}")
+            job.error_message = error_message
+            if "timeout" in error_message.lower():
+                hint = "Model inference timed out. Try switching to the smaller Qwen3-1.7B model in Settings > Performance."
+            else:
+                hint = error_message
+            self._handle_stalled_job(job, hint)
         except Exception as e:
             self.logger.error(f"Job {job.job_id} failed: {e}")
             job.status = ProcessingStatus.FAILED
@@ -302,6 +324,15 @@ class BackgroundProcessor:
         finally:
             # Always notify status change
             self._notify_status_change(job)
+
+    def _handle_stalled_job(self, job: ProcessingJob, reason: str):
+        """Mark a job as stalled and provide user guidance."""
+        job.status = ProcessingStatus.STALLED
+        job.stalled_reason = reason
+        self._update_progress(job, f"Stalled: {reason}")
+        self.completed_jobs[job.job_id] = job
+        if job.job_id in self.active_jobs:
+            del self.active_jobs[job.job_id]
     
     def _get_user_id(self) -> str:
         """Get the current user ID, raising an exception if not authenticated"""

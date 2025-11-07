@@ -5,13 +5,17 @@ Uses faster-whisper for offline transcription
 """
 
 import os
+import tempfile
+
 from faster_whisper import WhisperModel
 from pydub import AudioSegment
-import tempfile
+
+from app_paths import extend_path_with_resources
 
 
 class Transcriber:
     def __init__(self):
+        extend_path_with_resources()
         self.model = None
         self.model_size = "small"
         self.compute_type = "float32"  # Explicitly use float32 for consistent performance and to avoid conversion warnings

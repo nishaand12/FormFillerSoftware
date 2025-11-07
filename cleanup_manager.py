@@ -8,7 +8,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import time
+import shutil
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Dict, List
 from database_manager import DatabaseManager
 
@@ -85,6 +87,37 @@ class CleanupManager:
         except Exception as e:
             print(f"Error in manual cleanup: {e}")
             return {'files_deleted': 0, 'space_freed': 0, 'details': f"Error: {str(e)}"}
+
+    def clear_model_cache(self) -> Dict[str, int]:
+        """Remove downloaded model files to force a fresh download."""
+        try:
+            from app_paths import get_models_dir
+
+            models_dir = get_models_dir()
+            if not models_dir.exists():
+                return {'files_deleted': 0, 'space_freed': 0, 'details': 'Model cache already empty.'}
+
+            files_deleted = 0
+            space_freed = 0
+
+            for path in models_dir.rglob('*'):
+                if path.is_file():
+                    try:
+                        space_freed += path.stat().st_size
+                    except Exception:
+                        pass
+                    files_deleted += 1
+
+            for child in models_dir.iterdir():
+                if child.is_file():
+                    child.unlink(missing_ok=True)
+                else:
+                    shutil.rmtree(child, ignore_errors=True)
+
+            models_dir.mkdir(parents=True, exist_ok=True)
+            return {'files_deleted': files_deleted, 'space_freed': space_freed, 'details': 'Model cache cleared.'}
+        except Exception as e:
+            return {'files_deleted': 0, 'space_freed': 0, 'details': f"Error clearing model cache: {e}"}
     
     def get_cleanup_preview(self) -> List[Dict]:
         """Get list of files that would be cleaned up"""
@@ -242,6 +275,9 @@ class CleanupGUI:
         
         cleanup_button = ttk.Button(buttons_frame, text="Run Cleanup", command=self.run_cleanup)
         cleanup_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        reset_models_button = ttk.Button(buttons_frame, text="Reset Model Cache", command=self.reset_model_cache)
+        reset_models_button.pack(side=tk.LEFT, padx=(0, 10))
         
         close_button = ttk.Button(buttons_frame, text="Close", command=self.close_cleanup_manager)
         close_button.pack(side=tk.RIGHT)
@@ -411,6 +447,30 @@ class CleanupGUI:
             
         except Exception as e:
             messagebox.showerror("Error", f"Cleanup failed: {str(e)}")
+
+    def reset_model_cache(self):
+        """Clear downloaded model files to force a fresh download."""
+        if not messagebox.askyesno(
+            "Reset Model Cache",
+            "This will delete all downloaded model files (~4-5 GB) so they can be re-downloaded on the next run. Continue?",
+        ):
+            return
+
+        result = self.cleanup_manager.clear_model_cache()
+        space_freed = result['space_freed']
+        if space_freed > 1024 * 1024 * 1024:
+            space_str = f"{space_freed / (1024 * 1024 * 1024):.2f} GB"
+        elif space_freed > 1024 * 1024:
+            space_str = f"{space_freed / (1024 * 1024):.2f} MB"
+        elif space_freed > 1024:
+            space_str = f"{space_freed / 1024:.2f} KB"
+        else:
+            space_str = f"{space_freed} B"
+
+        messagebox.showinfo(
+            "Model Cache Reset",
+            f"{result['details']}\n\nFiles removed: {result['files_deleted']}\nSpace freed: {space_str}"
+        )
     
     def close_cleanup_manager(self):
         """Close the cleanup management window"""

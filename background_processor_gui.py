@@ -66,6 +66,16 @@ class BackgroundProcessorGUI:
         ttk.Label(overview_frame, text="Completed Jobs:").grid(row=0, column=4, sticky="w", padx=(0, 10))
         self.completed_jobs_label = ttk.Label(overview_frame, text="0", font=("TkDefaultFont", 10, "bold"))
         self.completed_jobs_label.grid(row=0, column=5, sticky="w")
+
+        self.guidance_var = tk.StringVar(value="")
+        guidance_label = ttk.Label(
+            overview_frame,
+            textvariable=self.guidance_var,
+            foreground="#b26a00",
+            wraplength=600,
+            justify="left"
+        )
+        guidance_label.grid(row=1, column=0, columnspan=6, sticky="w", pady=(8, 0))
     
     def create_active_jobs_section(self):
         """Create active jobs monitoring section"""
@@ -96,6 +106,9 @@ class BackgroundProcessorGUI:
         
         # Bind right-click
         self.active_tree.bind("<Button-3>", self.show_active_context_menu)
+
+        self.active_tree.tag_configure(ProcessingStatus.PROCESSING.value, foreground="#0055b3")
+        self.active_tree.tag_configure(ProcessingStatus.STALLED.value, foreground="#b26a00")
     
     def create_completed_jobs_section(self):
         """Create completed jobs monitoring section"""
@@ -123,9 +136,16 @@ class BackgroundProcessorGUI:
         self.completed_context_menu = tk.Menu(self.completed_tree, tearoff=0)
         self.completed_context_menu.add_command(label="View Details", command=self.view_job_details)
         self.completed_context_menu.add_command(label="Remove from List", command=self.remove_completed_job)
+        self.completed_context_menu.add_separator()
+        self.completed_context_menu.add_command(label="Recovery Tips", command=self.show_recovery_tips)
         
         # Bind right-click
         self.completed_tree.bind("<Button-3>", self.show_completed_context_menu)
+
+        self.completed_tree.tag_configure(ProcessingStatus.COMPLETED.value, foreground="green")
+        self.completed_tree.tag_configure(ProcessingStatus.FAILED.value, foreground="red")
+        self.completed_tree.tag_configure(ProcessingStatus.CANCELLED.value, foreground="#666666")
+        self.completed_tree.tag_configure(ProcessingStatus.STALLED.value, foreground="#b26a00")
     
     def create_control_buttons(self):
         """Create control buttons"""
@@ -182,6 +202,17 @@ class BackgroundProcessorGUI:
             self.queue_size_label.config(text=str(queue_size))
             self.active_jobs_label.config(text=str(active_count))
             self.completed_jobs_label.config(text=str(completed_count))
+
+            stalled_jobs = [job for job in self.background_processor.completed_jobs.values() if job.status == ProcessingStatus.STALLED]
+            if stalled_jobs:
+                latest = stalled_jobs[-1]
+                reason = latest.stalled_reason or latest.error_message or "Model stalled."
+                message = f"⚠️ {latest.patient_name or 'Job'} stalled: {reason}"
+                if len(message) > 200:
+                    message = message[:197] + "..."
+                self.guidance_var.set(message)
+            else:
+                self.guidance_var.set("")
             
             # Update active jobs tree
             self.update_active_jobs_tree()
@@ -212,7 +243,7 @@ class BackgroundProcessorGUI:
                 job.status.value,
                 job.progress[:30] + "..." if len(job.progress) > 30 else job.progress,
                 job.created_at.strftime("%H:%M:%S")
-            ), tags=(job.job_id,))
+            ), tags=(job.job_id, job.status.value))
     
     def update_completed_jobs_tree(self):
         """Update the completed jobs treeview"""
@@ -224,17 +255,25 @@ class BackgroundProcessorGUI:
         completed_jobs = list(self.background_processor.completed_jobs.values())[-20:]
         
         for job in completed_jobs:
-            result_text = "Success" if job.status == ProcessingStatus.COMPLETED else "Failed"
-            if job.status == ProcessingStatus.CANCELLED:
+            if job.status == ProcessingStatus.COMPLETED:
+                result_text = "Success"
+            elif job.status == ProcessingStatus.CANCELLED:
                 result_text = "Cancelled"
-            
+            elif job.status == ProcessingStatus.STALLED:
+                detail = job.stalled_reason or job.error_message or "Stalled"
+                if len(detail) > 40:
+                    detail = detail[:37] + "..."
+                result_text = f"Stalled - {detail}"
+            else:
+                result_text = "Failed"
+
             self.completed_tree.insert('', 'end', values=(
                 job.job_id[:12] + "...",  # Truncate long IDs
                 job.patient_name,
                 job.status.value,
                 result_text,
                 job.created_at.strftime("%H:%M:%S")
-            ), tags=(job.job_id,))
+            ), tags=(job.job_id, job.status.value))
     
     def refresh_display(self):
         """Manually refresh the display"""
@@ -331,6 +370,9 @@ class BackgroundProcessorGUI:
             ("Created:", job.created_at.strftime("%Y-%m-%d %H:%M:%S")),
             ("Forms to Fill:", ", ".join([k for k, v in job.forms_to_fill.items() if v]) or "None")
         ]
+
+        if job.status == ProcessingStatus.STALLED:
+            details.append(("Stalled Reason:", job.stalled_reason or job.error_message or "Unknown"))
         
         for i, (label, value) in enumerate(details):
             ttk.Label(info_frame, text=label).grid(row=i, column=0, sticky="w", padx=(0, 10))
@@ -381,6 +423,24 @@ class BackgroundProcessorGUI:
             self.completed_context_menu.post(event.x_root, event.y_root)
         except:
             pass
+
+    def show_recovery_tips(self):
+        """Display guidance for resolving stalled jobs"""
+        stalled_jobs = [job for job in self.background_processor.completed_jobs.values() if job.status == ProcessingStatus.STALLED]
+        if not stalled_jobs:
+            messagebox.showinfo("Recovery", "There are no stalled jobs at the moment.")
+            return
+
+        latest = stalled_jobs[-1]
+        message = (
+            "The most recent job stalled during data extraction.\n\n"
+            "Suggested next steps:\n"
+            "  • Open Settings → Performance and switch to the Qwen3-1.7B model.\n"
+            "  • Re-run the extraction, or clear the model cache from the Cleanup Manager and try again.\n"
+            "  • Ensure the transcript is under 2 minutes for the 4B model on Apple Silicon.\n\n"
+            f"Reason: {latest.stalled_reason or latest.error_message or 'Model inference stalled.'}"
+        )
+        messagebox.showinfo("Recovery Tips", message)
     
     def remove_completed_job(self):
         """Remove the selected completed job from the list"""
