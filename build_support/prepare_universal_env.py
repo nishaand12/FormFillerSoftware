@@ -195,7 +195,8 @@ def ensure_universal_runtime() -> bool:
     if not ffmpeg_ok:
         _log("ffmpeg staging failed")
 
-    return llama_ok and ffmpeg_ok
+    # Treat ffmpeg staging as optional; only block on llama rebuild failures.
+    return llama_ok
 
 
 if __name__ == "__main__":

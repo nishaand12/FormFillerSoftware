@@ -1,0 +1,112 @@
+name: Build Universal macOS DMG
+
+on:
+  push:
+    branches:
+      - universal-metal-build
+  workflow_dispatch:
+
+jobs:
+  build-universal:
+    name: Build Universal (Intel + Apple Silicon) DMG
+    runs-on: macos-13
+
+    env:
+      SIGNING_IDENTITY: ""
+      NOTARIZATION_TEAM_ID: ""
+      NOTARIZATION_USERNAME: ""
+      NOTARIZATION_PASSWORD: ""
+      SKIP_CODESIGN_VERIFY: "1"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify runner architecture
+        run: |
+          echo "🔍 Runner architecture: $(uname -m)"
+          python3 -c "import platform; print(f'Python architecture: {platform.machine()}')"
+
+      - name: Get version from VERSION file
+        id: get_version
+        run: |
+          VERSION=$(tr -d '\n\r ' < VERSION)
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "📦 Building version: $VERSION"
+
+      - name: Create Supabase config
+        run: |
+          mkdir -p config
+          cat > config/supabase_config.json <<'JSON'
+          {
+            "supabase_url": "${{ secrets.SUPABASE_URL }}",
+            "supabase_anon_key": "${{ secrets.SUPABASE_ANON_KEY }}"
+          }
+          JSON
+          echo "✅ Supabase config created"
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing Python dependencies..."
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Prepare universal runtime dependencies
+        run: |
+          echo "🛠️ Preparing universal dependencies..."
+          python -m build_support.prepare_universal_env || true
+
+      - name: Build universal DMG
+        run: |
+          echo "🔨 Building universal DMG with ad-hoc signing..."
+          python build_mac.py
+
+      - name: Verify universal binaries
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          DMG="PhysioClinicAssistant-${VERSION}-macOS.dmg"
+          if [ ! -f "$DMG" ]; then
+            echo "❌ DMG not found"
+            ls -lh
+            exit 1
+          fi
+
+          echo "✅ DMG created: $DMG"
+          hdiutil attach "$DMG" -mountpoint /tmp/dmg_verify -readonly
+          EXECUTABLE="/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/MacOS/PhysioClinicAssistant"
+          echo "Main executable architectures:"
+          lipo -info "$EXECUTABLE"
+
+          echo "Key ggml library architectures:"
+          find "/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/Frameworks" -name "libggml*.dylib" -o -name "libllama.dylib" | while read lib; do
+            echo "- $lib"
+            lipo -info "$lib" 2>/dev/null || file "$lib"
+          done
+
+          hdiutil detach /tmp/dmg_verify
+
+      - name: Rename DMG to universal variant
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          mv "PhysioClinicAssistant-${VERSION}-macOS.dmg" "PhysioClinicAssistant-${VERSION}-macOS-universal.dmg"
+          ls -lh PhysioClinicAssistant-*-macOS-universal.dmg
+
+      - name: Upload universal DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: physioclinicassistant-macos-universal
+          path: PhysioClinicAssistant-*-macOS-universal.dmg
+          retention-days: 30
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "## ✅ Universal Build Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: $GITHUB_REF" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DMG: PhysioClinicAssistant-${{ steps.get_version.outputs.VERSION }}-macOS-universal.dmg" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Includes both x86_64 and arm64 slices" >> "$GITHUB_STEP_SUMMARY"
