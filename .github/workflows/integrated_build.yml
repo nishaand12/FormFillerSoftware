@@ -17,14 +17,12 @@ jobs:
   build-universal:
     name: Build Universal (Intel + Apple Silicon) DMG
     runs-on: macos-13
-
     env:
       SIGNING_IDENTITY: ""
       NOTARIZATION_TEAM_ID: ""
       NOTARIZATION_USERNAME: ""
       NOTARIZATION_PASSWORD: ""
       SKIP_CODESIGN_VERIFY: "1"
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,6 +42,10 @@ jobs:
         id: get_version
         run: |
           VERSION=$(tr -d '\n\r ' < VERSION)
+          if [ -z "$VERSION" ]; then
+            echo "VERSION file is empty" >&2
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Building version: $VERSION"
 
@@ -53,16 +55,17 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           mkdir -p config
-          cat <<JSON > config/supabase_config.json
+          cat <<EOF > config/supabase_config.json
           {
             "supabase_url": "${SUPABASE_URL}",
             "supabase_anon_key": "${SUPABASE_ANON_KEY}"
           }
-          JSON
+          EOF
           echo "✅ Supabase config created"
 
       - name: Install dependencies
         run: |
+          set -euo pipefail
           echo "📦 Installing Python dependencies..."
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
@@ -76,22 +79,17 @@ jobs:
           PYTHON_VERSION_STR="3.12"
           PYTHON_ABI_TAG="cp312"
 
-          get_version() {
-            PACKAGE="$1"
-            PACKAGE_VERSION=$(PACKAGE="$PACKAGE" python - <<'PYV'
-import importlib.metadata as md
-import os
-print(md.version(os.environ["PACKAGE"]))
-PYV
-)
-            echo "$PACKAGE_VERSION"
-          }
-
           install_universal() {
-            PACKAGE_NAME="$1"
-            PACKAGE_VERSION="$(get_version "$PACKAGE_NAME")"
-            echo "📦 Reinstalling $PACKAGE_NAME==$PACKAGE_VERSION as universal2"
-            python -m pip download "${PACKAGE_NAME}==${PACKAGE_VERSION}" \
+            local package_name="$1"
+            local package_version
+            package_version=$(PACKAGE="$package_name" python - <<'PYV'
+            import importlib.metadata as md
+            import os
+            print(md.version(os.environ["PACKAGE"]))
+            PYV
+            )
+            echo "📦 Reinstalling ${package_name}==${package_version} as universal2"
+            python -m pip download "${package_name}==${package_version}" \
               --dest universal_wheels \
               --only-binary=:all: \
               --platform "${PLATFORM_TAG}" \
@@ -99,8 +97,9 @@ PYV
               --python-version "${PYTHON_VERSION_STR}" \
               --abi "${PYTHON_ABI_TAG}"
 
-            WHEEL_PATTERN="$(echo "${PACKAGE_NAME}" | tr '-' '_')-${PACKAGE_VERSION}-*.whl"
-            python -m pip install --force-reinstall --no-deps universal_wheels/${WHEEL_PATTERN}
+            local wheel_pattern
+            wheel_pattern="$(echo "${package_name}" | tr '-' '_')-${package_version}-*.whl"
+            python -m pip install --force-reinstall --no-deps "universal_wheels/${wheel_pattern}"
           }
 
           install_universal pydantic-core
@@ -111,20 +110,23 @@ PYV
 
       - name: Prepare universal runtime dependencies
         run: |
+          set -euo pipefail
           echo "🛠️ Preparing universal dependencies..."
           python -m build_support.prepare_universal_env || true
 
       - name: Build universal DMG
         run: |
+          set -euo pipefail
           echo "🔨 Building universal DMG with ad-hoc signing..."
           python build_mac.py
 
       - name: Verify universal binaries
         run: |
+          set -euo pipefail
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           DMG="PhysioClinicAssistant-${VERSION}-macOS.dmg"
           if [ ! -f "$DMG" ]; then
-            echo "❌ DMG not found"
+            echo "❌ DMG not found" >&2
             ls -lh
             exit 1
           fi
@@ -145,6 +147,7 @@ PYV
 
       - name: Rename DMG to universal variant
         run: |
+          set -euo pipefail
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           mv "PhysioClinicAssistant-${VERSION}-macOS.dmg" "PhysioClinicAssistant-${VERSION}-macOS-universal.dmg"
           ls -lh PhysioClinicAssistant-*-macOS-universal.dmg
