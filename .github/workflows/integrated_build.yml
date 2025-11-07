@@ -6,6 +6,13 @@ on:
       - universal-metal-build
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-universal:
     name: Build Universal (Intel + Apple Silicon) DMG
@@ -26,6 +33,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
       - name: Verify runner architecture
         run: |
@@ -40,12 +48,15 @@ jobs:
           echo "📦 Building version: $VERSION"
 
       - name: Create Supabase config
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           mkdir -p config
-          cat > config/supabase_config.json <<'JSON'
+          cat <<JSON > config/supabase_config.json
           {
-            "supabase_url": "${{ secrets.SUPABASE_URL }}",
-            "supabase_anon_key": "${{ secrets.SUPABASE_ANON_KEY }}"
+            "supabase_url": "${SUPABASE_URL}",
+            "supabase_anon_key": "${SUPABASE_ANON_KEY}"
           }
           JSON
           echo "✅ Supabase config created"
@@ -54,7 +65,7 @@ jobs:
         run: |
           echo "📦 Installing Python dependencies..."
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
 
       - name: Reinstall universal wheels
         run: |
@@ -80,7 +91,7 @@ PYV
             PACKAGE_NAME="$1"
             PACKAGE_VERSION="$(get_version "$PACKAGE_NAME")"
             echo "📦 Reinstalling $PACKAGE_NAME==$PACKAGE_VERSION as universal2"
-            pip download "${PACKAGE_NAME}==${PACKAGE_VERSION}" \
+            python -m pip download "${PACKAGE_NAME}==${PACKAGE_VERSION}" \
               --dest universal_wheels \
               --only-binary=:all: \
               --platform "${PLATFORM_TAG}" \
@@ -89,7 +100,7 @@ PYV
               --abi "${PYTHON_ABI_TAG}"
 
             WHEEL_PATTERN="$(echo "${PACKAGE_NAME}" | tr '-' '_')-${PACKAGE_VERSION}-*.whl"
-            pip install --force-reinstall --no-deps universal_wheels/${WHEEL_PATTERN}
+            python -m pip install --force-reinstall --no-deps universal_wheels/${WHEEL_PATTERN}
           }
 
           install_universal pydantic-core
@@ -97,7 +108,6 @@ PYV
           install_universal scipy
 
           rm -rf universal_wheels
-
 
       - name: Prepare universal runtime dependencies
         run: |
@@ -126,7 +136,7 @@ PYV
           lipo -info "$EXECUTABLE"
 
           echo "Key ggml library architectures:"
-          find "/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/Frameworks" -name "libggml*.dylib" -o -name "libllama.dylib" | while read lib; do
+          find "/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/Frameworks" \( -name "libggml*.dylib" -o -name "libllama.dylib" \) | while IFS= read -r lib; do
             echo "- $lib"
             lipo -info "$lib" 2>/dev/null || file "$lib"
           done
@@ -149,7 +159,9 @@ PYV
       - name: Build summary
         if: success()
         run: |
-          echo "## ✅ Universal Build Complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Branch: $GITHUB_REF" >> "$GITHUB_STEP_SUMMARY"
-          echo "- DMG: PhysioClinicAssistant-${{ steps.get_version.outputs.VERSION }}-macOS-universal.dmg" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Includes both x86_64 and arm64 slices" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## ✅ Universal Build Complete"
+            echo "- Branch: $GITHUB_REF"
+            echo "- DMG: PhysioClinicAssistant-${{ steps.get_version.outputs.VERSION }}-macOS-universal.dmg"
+            echo "- Includes both x86_64 and arm64 slices"
+          } >> "$GITHUB_STEP_SUMMARY"
