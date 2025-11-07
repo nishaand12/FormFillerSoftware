@@ -56,6 +56,45 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Reinstall universal wheels
+        run: |
+          set -euo pipefail
+          mkdir -p universal_wheels
+
+          PLATFORM_TAG="macosx_12_0_universal2"
+          PYTHON_VERSION_STR="3.12"
+          PYTHON_ABI_TAG="cp312"
+
+          get_version() {
+            python - "$1" <<'PYV'
+import importlib.metadata as md, sys
+print(md.version(sys.argv[1]))
+PYV
+          }
+
+          install_universal() {
+            PACKAGE_NAME="$1"
+            PACKAGE_VERSION="$(get_version "$PACKAGE_NAME")"
+            echo "📦 Reinstalling $PACKAGE_NAME==$PACKAGE_VERSION as universal2"
+            pip download "${PACKAGE_NAME}==${PACKAGE_VERSION}" \
+              --dest universal_wheels \
+              --only-binary=:all: \
+              --platform "${PLATFORM_TAG}" \
+              --implementation cp \
+              --python-version "${PYTHON_VERSION_STR}" \
+              --abi "${PYTHON_ABI_TAG}"
+
+            WHEEL_PATTERN="$(echo "${PACKAGE_NAME}" | tr '-' '_')-${PACKAGE_VERSION}-*.whl"
+            pip install --force-reinstall --no-deps universal_wheels/${WHEEL_PATTERN}
+          }
+
+          install_universal pydantic-core
+          install_universal numpy
+          install_universal scipy
+
+          rm -rf universal_wheels
+
+
       - name: Prepare universal runtime dependencies
         run: |
           echo "🛠️ Preparing universal dependencies..."
