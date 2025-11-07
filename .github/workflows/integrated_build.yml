@@ -66,10 +66,14 @@ jobs:
           PYTHON_ABI_TAG="cp312"
 
           get_version() {
-            python - "$1" <<'PYV'
-import importlib.metadata as md, sys
-print(md.version(sys.argv[1]))
+            PACKAGE="$1"
+            PACKAGE_VERSION=$(PACKAGE="$PACKAGE" python - <<'PYV'
+import importlib.metadata as md
+import os
+print(md.version(os.environ["PACKAGE"]))
 PYV
+)
+            echo "$PACKAGE_VERSION"
           }
 
           install_universal() {
