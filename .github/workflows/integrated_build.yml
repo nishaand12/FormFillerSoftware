@@ -102,12 +102,7 @@ jobs:
           install_universal() {
             local package_name="$1"
             local package_version
-            package_version=$(PACKAGE="$package_name" python - <<'PYV'
-            import importlib.metadata as md
-            import os
-            print(md.version(os.environ["PACKAGE"]))
-            PYV
-            )
+          package_version=$(PACKAGE="$package_name" python -c "import importlib.metadata as md, os; print(md.version(os.environ['PACKAGE']))")
             echo "📦 Reinstalling ${package_name}==${package_version} as universal2"
             python -m pip download "${package_name}==${package_version}" \
               --dest universal_wheels \
