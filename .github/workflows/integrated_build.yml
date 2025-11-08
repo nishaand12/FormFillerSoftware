@@ -24,6 +24,7 @@ jobs:
       NOTARIZATION_PASSWORD: ""
       SKIP_CODESIGN_VERIFY: "1"
       CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF -DGGML_METAL=ON"
+      PIP_EXTRA_INDEX_URL: "https://abetlen.github.io/llama-cpp-python/whl/metal"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
