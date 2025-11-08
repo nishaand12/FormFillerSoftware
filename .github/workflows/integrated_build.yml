@@ -23,7 +23,7 @@ jobs:
       NOTARIZATION_USERNAME: ""
       NOTARIZATION_PASSWORD: ""
       SKIP_CODESIGN_VERIFY: "1"
-      CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF"
+      CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF -DGGML_METAL=ON"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,7 +82,8 @@ jobs:
       - name: Install dependencies
         run: |
           set -euo pipefail
-          export CMAKE_ARGS="-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF"
+          export CMAKE_ARGS="-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF -DGGML_METAL=ON"
+          export GGML_METAL_PATH="/System/Library/Frameworks/Metal.framework"
           echo "🔧 CMAKE_ARGS=${CMAKE_ARGS}"
           export PIP_NO_BUILD_ISOLATION=0
           echo "📦 Installing Python dependencies..."
