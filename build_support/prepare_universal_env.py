@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 
-LLAMA_CPP_VERSION = "0.3.14"
+LLAMA_CPP_VERSION = "0.3.16"
 
 FFMPEG_RELEASES: Dict[str, Dict[str, str]] = {
     "macos-universal": {
@@ -51,12 +51,14 @@ def _run(cmd, *, env=None, check=True) -> subprocess.CompletedProcess:
 
 def _llama_cpp_supports_metal() -> bool:
     try:
+        python_exe = os.environ.get("PYTHON_EXECUTABLE", os.sys.executable)
+        detection_code = (
+            "import json, llama_cpp\n"
+            "has_metal = getattr(llama_cpp, 'llama_metal_available', lambda: False)()\n"
+            "print(json.dumps({'metal': bool(has_metal)}))"
+        )
         result = subprocess.run(
-            [
-                os.environ.get("PYTHON_EXECUTABLE", os.sys.executable),
-                "-c",
-                "import json, llama_cpp; print(json.dumps({'metal': bool(getattr(llama_cpp, 'llama_metal_available', lambda: False)()))})",
-            ],
+            [python_exe, "-c", detection_code],
             check=True,
             capture_output=True,
             text=True,
