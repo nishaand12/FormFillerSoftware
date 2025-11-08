@@ -23,7 +23,7 @@ jobs:
       NOTARIZATION_USERNAME: ""
       NOTARIZATION_PASSWORD: ""
       SKIP_CODESIGN_VERIFY: "1"
-      CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF"
+      CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,13 +73,18 @@ jobs:
           echo "✅ Supabase config created"
 
       - name: Install dependencies
-        env:
-          CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF"
         run: |
           set -euo pipefail
+          export CMAKE_ARGS="-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF"
+          echo "🔧 CMAKE_ARGS=${CMAKE_ARGS}"
+          export PIP_NO_BUILD_ISOLATION=0
           echo "📦 Installing Python dependencies..."
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          if ! python -m pip install --no-cache-dir --only-binary=:all: llama_cpp_python==0.3.14; then
+            echo "ℹ️ Prebuilt llama_cpp_python wheel unavailable, building from source with ${CMAKE_ARGS}"
+            python -m pip install --no-cache-dir llama_cpp_python==0.3.14
+          fi
+          python -m pip install --no-cache-dir -r requirements.txt
 
       - name: Reinstall universal wheels
         run: |
