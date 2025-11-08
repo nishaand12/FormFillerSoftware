@@ -104,17 +104,19 @@ jobs:
             local package_version
           package_version=$(PACKAGE="$package_name" python -c "import importlib.metadata as md, os; print(md.version(os.environ['PACKAGE']))")
             echo "📦 Reinstalling ${package_name}==${package_version} as universal2"
-            python -m pip download "${package_name}==${package_version}" \
+          if python -m pip download "${package_name}==${package_version}" \
               --dest universal_wheels \
               --only-binary=:all: \
               --platform "${PLATFORM_TAG}" \
               --implementation cp \
               --python-version "${PYTHON_VERSION_STR}" \
-              --abi "${PYTHON_ABI_TAG}"
-
+              --abi "${PYTHON_ABI_TAG}"; then
             local wheel_pattern
             wheel_pattern="$(echo "${package_name}" | tr '-' '_')-${package_version}-*.whl"
             python -m pip install --force-reinstall --no-deps "universal_wheels/${wheel_pattern}"
+          else
+            echo "⚠️ Universal2 wheel for ${package_name}==${package_version} not available. Keeping existing installation."
+          fi
           }
 
           install_universal numpy
