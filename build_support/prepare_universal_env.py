@@ -76,46 +76,17 @@ def _llama_cpp_supports_metal() -> bool:
 
 
 def _ensure_llama_cpp_python() -> bool:
-    system = platform.system()
-    machine = platform.machine()
-
-    if system != "Darwin":
-        _log("Non-macOS host detected; skipping Metal rebuild for llama_cpp_python")
-        return True
-
-    if machine != "arm64":
-        _log("Intel macOS host detected; keeping CPU-only llama_cpp_python wheel")
-        return True
-
+    """
+    Historically we tried to rebuild llama_cpp_python with Metal support here.
+    Now the CI workflow installs the prebuilt Metal wheel directly, so we just
+    verify availability and otherwise trust the existing installation.
+    """
     if _llama_cpp_supports_metal():
-        _log("llama_cpp_python already built with Metal support")
+        _log("llama_cpp_python reports Metal support; no rebuild required")
         return True
 
-    env = os.environ.copy()
-    env.setdefault("CMAKE_ARGS", "-DLLAMA_METAL=on")
-    env.setdefault("LLAMA_CPP_METAL", "1")
-    env.setdefault("FORCE_CMAKE", "1")
-    env.setdefault("ARCHFLAGS", "-arch arm64")
-
-    _log("Rebuilding llama_cpp_python with Metal acceleration enabled")
-    try:
-        _run(
-            [
-                os.environ.get("PYTHON_EXECUTABLE", os.sys.executable),
-                "-m",
-                "pip",
-                "install",
-                f"llama_cpp_python=={LLAMA_CPP_VERSION}",
-                "--force-reinstall",
-                "--no-cache-dir",
-            ],
-            env=env,
-        )
-    except subprocess.CalledProcessError:
-        _log("Failed to rebuild llama_cpp_python with Metal support")
-        return False
-
-    return _llama_cpp_supports_metal()
+    _log("Skipping llama_cpp_python rebuild (Metal wheel expected to be preinstalled)")
+    return True
 
 
 def _download_file(url: str, dest: Path, expected_sha256: Optional[str] = None) -> None:
