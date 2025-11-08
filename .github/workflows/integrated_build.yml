@@ -34,6 +34,13 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Install build tooling
+        run: |
+          set -euo pipefail
+          echo "🛠️ Installing build toolchain (pip/setuptools/wheel/scikit-build-core/cmake/ninja)..."
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --no-cache-dir scikit-build-core cmake ninja
+
       - name: Verify runner architecture
         run: |
           echo "🔍 Runner architecture: $(uname -m)"
@@ -79,7 +86,6 @@ jobs:
           echo "🔧 CMAKE_ARGS=${CMAKE_ARGS}"
           export PIP_NO_BUILD_ISOLATION=0
           echo "📦 Installing Python dependencies..."
-          python -m pip install --upgrade pip
           if ! python -m pip install --no-cache-dir --only-binary=:all: llama_cpp_python==0.3.14; then
             echo "ℹ️ Prebuilt llama_cpp_python wheel unavailable, building from source with ${CMAKE_ARGS}"
             python -m pip install --no-cache-dir llama_cpp_python==0.3.14
