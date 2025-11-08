@@ -16,7 +16,7 @@ defaults:
 jobs:
   build-universal:
     name: Build Universal (Intel + Apple Silicon) DMG
-    runs-on: macos-13
+    runs-on: macos-15
     env:
       SIGNING_IDENTITY: ""
       NOTARIZATION_TEAM_ID: ""
@@ -37,6 +37,14 @@ jobs:
         run: |
           echo "🔍 Runner architecture: $(uname -m)"
           python3 -c "import platform; print(f'Python architecture: {platform.machine()}')"
+
+      - name: Ensure Rosetta 2 for x86_64 tools
+        if: ${{ runner.arch == 'ARM64' }}
+        run: |
+          set -euo pipefail
+          echo "➡️ Installing Rosetta 2 (Needed for x86_64 binaries)..."
+          sudo softwareupdate --install-rosetta --agree-to-license || echo "Rosetta 2 already installed"
+          /usr/bin/pgrep oahd >/dev/null && echo "✅ Rosetta 2 active" || echo "⚠️ Rosetta 2 service not detected"
 
       - name: Get version from VERSION file
         id: get_version
