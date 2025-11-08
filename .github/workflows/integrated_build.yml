@@ -23,6 +23,7 @@ jobs:
       NOTARIZATION_USERNAME: ""
       NOTARIZATION_PASSWORD: ""
       SKIP_CODESIGN_VERIFY: "1"
+      CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
