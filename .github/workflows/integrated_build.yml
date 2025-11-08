@@ -1,4 +1,4 @@
-name: Build Universal macOS DMG
+name: Build macOS arm64 DMG
 
 on:
   push:
@@ -15,7 +15,7 @@ defaults:
 
 jobs:
   build-universal:
-    name: Build Universal (Intel + Apple Silicon) DMG
+    name: Build macOS arm64 DMG
     runs-on: macos-15
     env:
       SIGNING_IDENTITY: ""
@@ -90,7 +90,7 @@ jobs:
           echo "📦 Installing Python dependencies..."
           python -m pip install --no-cache-dir -r requirements.txt
 
-      - name: Reinstall universal wheels
+      - name: Reinstall arm64 wheels (optional)
         run: |
           set -euo pipefail
           mkdir -p universal_wheels
@@ -124,19 +124,19 @@ jobs:
 
           rm -rf universal_wheels
 
-      - name: Prepare universal runtime dependencies
+      - name: Prepare runtime dependencies
         run: |
           set -euo pipefail
-          echo "🛠️ Preparing universal dependencies..."
+          echo "🛠️ Preparing runtime dependencies..."
           python -m build_support.prepare_universal_env || true
 
-      - name: Build universal DMG
+      - name: Build arm64 DMG
         run: |
           set -euo pipefail
-          echo "🔨 Building universal DMG with ad-hoc signing..."
+          echo "🔨 Building arm64 DMG with ad-hoc signing..."
           python build_mac.py
 
-      - name: Verify universal binaries
+      - name: Verify arm64 binaries
         run: |
           set -euo pipefail
           VERSION="${{ steps.get_version.outputs.VERSION }}"
@@ -150,10 +150,10 @@ jobs:
           echo "✅ DMG created: $DMG"
           hdiutil attach "$DMG" -mountpoint /tmp/dmg_verify -readonly
           EXECUTABLE="/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/MacOS/PhysioClinicAssistant"
-          echo "Main executable architectures:"
-          lipo -info "$EXECUTABLE"
+          echo "Main executable architecture:"
+          lipo -info "$EXECUTABLE" | sed 's/Mach-O 64-bit executable/x86_64 slice not expected/'
 
-          echo "Key ggml library architectures:"
+          echo "Key ggml library architecture:"
           find "/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/Frameworks" \( -name "libggml*.dylib" -o -name "libllama.dylib" \) | while IFS= read -r lib; do
             echo "- $lib"
             lipo -info "$lib" 2>/dev/null || file "$lib"
@@ -161,26 +161,26 @@ jobs:
 
           hdiutil detach /tmp/dmg_verify
 
-      - name: Rename DMG to universal variant
+      - name: Rename DMG to arm64 variant
         run: |
           set -euo pipefail
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          mv "PhysioClinicAssistant-${VERSION}-macOS.dmg" "PhysioClinicAssistant-${VERSION}-macOS-universal.dmg"
-          ls -lh PhysioClinicAssistant-*-macOS-universal.dmg
+          mv "PhysioClinicAssistant-${VERSION}-macOS.dmg" "PhysioClinicAssistant-${VERSION}-macOS-arm64.dmg"
+          ls -lh PhysioClinicAssistant-*-macOS-arm64.dmg
 
-      - name: Upload universal DMG artifact
+      - name: Upload arm64 DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: physioclinicassistant-macos-universal
-          path: PhysioClinicAssistant-*-macOS-universal.dmg
+          name: physioclinicassistant-macos-arm64
+          path: PhysioClinicAssistant-*-macOS-arm64.dmg
           retention-days: 30
 
       - name: Build summary
         if: success()
         run: |
           {
-            echo "## ✅ Universal Build Complete"
+            echo "## ✅ macOS arm64 Build Complete"
             echo "- Branch: $GITHUB_REF"
-            echo "- DMG: PhysioClinicAssistant-${{ steps.get_version.outputs.VERSION }}-macOS-universal.dmg"
-            echo "- Includes both x86_64 and arm64 slices"
+            echo "- DMG: PhysioClinicAssistant-${{ steps.get_version.outputs.VERSION }}-macOS-arm64.dmg"
+            echo "- Target architecture: arm64 (Apple silicon)"
           } >> "$GITHUB_STEP_SUMMARY"
