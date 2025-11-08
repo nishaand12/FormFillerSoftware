@@ -86,10 +86,6 @@ jobs:
           echo "🔧 CMAKE_ARGS=${CMAKE_ARGS}"
           export PIP_NO_BUILD_ISOLATION=0
           echo "📦 Installing Python dependencies..."
-          if ! python -m pip install --no-cache-dir --only-binary=:all: llama_cpp_python==0.3.14; then
-            echo "ℹ️ Prebuilt llama_cpp_python wheel unavailable, building from source with ${CMAKE_ARGS}"
-            python -m pip install --no-cache-dir llama_cpp_python==0.3.14
-          fi
           python -m pip install --no-cache-dir -r requirements.txt
 
       - name: Reinstall universal wheels
