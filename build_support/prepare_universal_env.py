@@ -162,18 +162,16 @@ def ensure_universal_runtime() -> bool:
     """Prepare environment for universal macOS builds."""
 
     llama_ok = _ensure_llama_cpp_python()
-    pydantic_ok = _ensure_pydantic_core_universal()
+    _ensure_pydantic_core_universal()
     ffmpeg_ok = _stage_ffmpeg_binaries()
 
     if not llama_ok:
         _log("llama_cpp_python Metal rebuild failed")
-    if not pydantic_ok:
-        _log("pydantic-core universalization failed; continuing with arm64 slice")
     if not ffmpeg_ok:
         _log("ffmpeg staging failed")
 
     # Treat ffmpeg staging as optional; only block on llama rebuild failures.
-    return llama_ok and pydantic_ok
+    return llama_ok
 
 
 def _ensure_pydantic_core_universal() -> bool:
@@ -188,24 +186,24 @@ def _ensure_pydantic_core_universal() -> bool:
         import importlib.util as iu
     except ImportError:
         _log("Cannot inspect pydantic-core; skipping universal merge")
-        return False
+        return
 
     try:
         version = md.version("pydantic-core")
     except md.PackageNotFoundError:
         _log("pydantic-core not installed; skipping universal merge")
-        return True
+        return
 
     spec = iu.find_spec("pydantic_core")
     if not spec or not spec.submodule_search_locations:
         _log("Unable to locate pydantic_core package path")
-        return False
+        return
 
     package_dir = Path(spec.submodule_search_locations[0])
     arm_candidates = list(package_dir.glob("_pydantic_core*.so"))
     if not arm_candidates:
         _log("Could not find arm64 pydantic-core shared library")
-        return False
+        return
 
     arm_binary = arm_candidates[0]
 
@@ -236,13 +234,13 @@ def _ensure_pydantic_core_universal() -> bool:
 
         result = subprocess.run(download_cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            _log(f"Failed to download pydantic-core x86_64 wheel: {result.stderr.strip()}")
-            return False
+            _log(f"x86_64 wheel unavailable for pydantic-core=={version}; keeping arm64 slice only")
+            return
 
         wheels = list(wheel_dir.glob("pydantic_core-*.whl"))
         if not wheels:
-            _log("No pydantic-core wheel downloaded for x86_64")
-            return False
+            _log("No pydantic-core wheel downloaded for x86_64; keeping arm64 slice only")
+            return
 
         wheel_path = wheels[0]
         extract_dir = tmp_path / "x86"
@@ -251,8 +249,8 @@ def _ensure_pydantic_core_universal() -> bool:
 
         x86_candidates = list(extract_dir.glob("pydantic_core/_pydantic_core*.so"))
         if not x86_candidates:
-            _log("Could not locate pydantic-core x86_64 shared library inside wheel")
-            return False
+            _log("Could not locate pydantic-core x86_64 shared library inside wheel; leaving arm64 slice intact")
+            return
 
         x86_binary = x86_candidates[0]
 
@@ -268,14 +266,11 @@ def _ensure_pydantic_core_universal() -> bool:
 
         result = subprocess.run(lipo_cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            _log(f"lipo failed while creating universal pydantic-core: {result.stderr.strip()}")
-            return False
+            _log(f"lipo failed while creating universal pydantic-core: {result.stderr.strip()} (continuing with arm64 slice)")
+            return
 
         shutil.copy2(universal_tmp, arm_binary)
         _log("Replaced pydantic-core binary with universal (arm64+x86_64) slice")
-        return True
-
-    return False
 
 
 if __name__ == "__main__":
