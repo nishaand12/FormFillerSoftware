@@ -1,13 +1,11 @@
-"""Utility helpers to prepare a universal macOS runtime before packaging.
+"""Utility helpers to prepare a macOS arm64 runtime before packaging.
 
 This module performs two key tasks:
-  1. Ensures `llama_cpp_python` is built with Metal acceleration on Apple Silicon while
-     keeping a functional x86_64 slice for Intel Macs.
+  1. Verifies `llama_cpp_python` exposes Metal acceleration on Apple Silicon.
   2. Optionally stages ffmpeg/ffprobe binaries so audio processing works out of the box.
 
-The functions are written so they can be safely called from build scripts as well as
-interactive sessions. All subprocess calls include detailed logging to help diagnose
-build failures on CI hosts where toolchains might be missing.
+All subprocess calls include detailed logging to help diagnose build failures on CI
+hosts where toolchains might be missing.
 """
 
 from __future__ import annotations
@@ -20,7 +18,6 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import zipfile
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -159,10 +156,9 @@ def _stage_ffmpeg_binaries() -> bool:
 
 
 def ensure_universal_runtime() -> bool:
-    """Prepare environment for universal macOS builds."""
+    """Prepare environment for macOS arm64 builds."""
 
     llama_ok = _ensure_llama_cpp_python()
-    _ensure_pydantic_core_universal()
     ffmpeg_ok = _stage_ffmpeg_binaries()
 
     if not llama_ok:
@@ -172,105 +168,6 @@ def ensure_universal_runtime() -> bool:
 
     # Treat ffmpeg staging as optional; only block on llama rebuild failures.
     return llama_ok
-
-
-def _ensure_pydantic_core_universal() -> bool:
-    """
-    Ensure pydantic-core's extension module is a universal (fat) binary.
-    PyInstaller enforces universal2 when building universal apps; without an x86_64
-    slice, it aborts the COLLECT stage. We combine the installed arm64 slice with
-    an x86_64 wheel on the fly.
-    """
-    try:
-        import importlib.metadata as md
-        import importlib.util as iu
-    except ImportError:
-        _log("Cannot inspect pydantic-core; skipping universal merge")
-        return
-
-    try:
-        version = md.version("pydantic-core")
-    except md.PackageNotFoundError:
-        _log("pydantic-core not installed; skipping universal merge")
-        return
-
-    spec = iu.find_spec("pydantic_core")
-    if not spec or not spec.submodule_search_locations:
-        _log("Unable to locate pydantic_core package path")
-        return
-
-    package_dir = Path(spec.submodule_search_locations[0])
-    arm_candidates = list(package_dir.glob("_pydantic_core*.so"))
-    if not arm_candidates:
-        _log("Could not find arm64 pydantic-core shared library")
-        return
-
-    arm_binary = arm_candidates[0]
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
-        wheel_dir = tmp_path / "wheels"
-        wheel_dir.mkdir(parents=True, exist_ok=True)
-
-        download_cmd = [
-            os.environ.get("PYTHON_EXECUTABLE", os.sys.executable),
-            "-m",
-            "pip",
-            "download",
-            f"pydantic-core=={version}",
-            "--no-deps",
-            "--only-binary=:all:",
-            "--platform",
-            "macosx_10_9_x86_64",
-            "--implementation",
-            "cp",
-            "--python-version",
-            "3.12",
-            "--abi",
-            "cp312",
-            "--dest",
-            str(wheel_dir),
-        ]
-
-        result = subprocess.run(download_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            _log(f"x86_64 wheel unavailable for pydantic-core=={version}; keeping arm64 slice only")
-            return
-
-        wheels = list(wheel_dir.glob("pydantic_core-*.whl"))
-        if not wheels:
-            _log("No pydantic-core wheel downloaded for x86_64; keeping arm64 slice only")
-            return
-
-        wheel_path = wheels[0]
-        extract_dir = tmp_path / "x86"
-        with zipfile.ZipFile(wheel_path, "r") as zf:
-            zf.extractall(extract_dir)
-
-        x86_candidates = list(extract_dir.glob("pydantic_core/_pydantic_core*.so"))
-        if not x86_candidates:
-            _log("Could not locate pydantic-core x86_64 shared library inside wheel; leaving arm64 slice intact")
-            return
-
-        x86_binary = x86_candidates[0]
-
-        universal_tmp = tmp_path / "universal.so"
-        lipo_cmd = [
-            "lipo",
-            "-create",
-            str(arm_binary),
-            str(x86_binary),
-            "-output",
-            str(universal_tmp),
-        ]
-
-        result = subprocess.run(lipo_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            _log(f"lipo failed while creating universal pydantic-core: {result.stderr.strip()} (continuing with arm64 slice)")
-            return
-
-        shutil.copy2(universal_tmp, arm_binary)
-        _log("Replaced pydantic-core binary with universal (arm64+x86_64) slice")
 
 
 if __name__ == "__main__":

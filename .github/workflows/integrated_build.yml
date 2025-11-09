@@ -90,40 +90,6 @@ jobs:
           echo "📦 Installing Python dependencies..."
           python -m pip install --no-cache-dir -r requirements.txt
 
-      - name: Reinstall arm64 wheels (optional)
-        run: |
-          set -euo pipefail
-          mkdir -p universal_wheels
-
-          PLATFORM_TAG="macosx_12_0_universal2"
-          PYTHON_VERSION_STR="3.12"
-          PYTHON_ABI_TAG="cp312"
-
-          install_universal() {
-            local package_name="$1"
-            local package_version
-          package_version=$(PACKAGE="$package_name" python -c "import importlib.metadata as md, os; print(md.version(os.environ['PACKAGE']))")
-            echo "📦 Reinstalling ${package_name}==${package_version} as universal2"
-          if python -m pip download "${package_name}==${package_version}" \
-              --dest universal_wheels \
-              --only-binary=:all: \
-              --platform "${PLATFORM_TAG}" \
-              --implementation cp \
-              --python-version "${PYTHON_VERSION_STR}" \
-              --abi "${PYTHON_ABI_TAG}"; then
-            local wheel_pattern
-            wheel_pattern="$(echo "${package_name}" | tr '-' '_')-${package_version}-*.whl"
-            python -m pip install --force-reinstall --no-deps "universal_wheels/${wheel_pattern}"
-          else
-            echo "⚠️ Universal2 wheel for ${package_name}==${package_version} not available. Keeping existing installation."
-          fi
-          }
-
-          install_universal numpy
-          install_universal scipy
-
-          rm -rf universal_wheels
-
       - name: Prepare runtime dependencies
         run: |
           set -euo pipefail
@@ -151,9 +117,13 @@ jobs:
           hdiutil attach "$DMG" -mountpoint /tmp/dmg_verify -readonly
           EXECUTABLE="/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/MacOS/PhysioClinicAssistant"
           echo "Main executable architecture:"
-          lipo -info "$EXECUTABLE" | sed 's/Mach-O 64-bit executable/x86_64 slice not expected/'
+          lipo -info "$EXECUTABLE"
+          if ! lipo -info "$EXECUTABLE" | grep -q "architecture: arm64"; then
+            echo "❌ Expected arm64 architecture in main executable" >&2
+            exit 1
+          fi
 
-          echo "Key ggml library architecture:"
+          echo "Key ggml library architectures:"
           find "/tmp/dmg_verify/PhysioClinicAssistant.app/Contents/Frameworks" \( -name "libggml*.dylib" -o -name "libllama.dylib" \) | while IFS= read -r lib; do
             echo "- $lib"
             lipo -info "$lib" 2>/dev/null || file "$lib"
