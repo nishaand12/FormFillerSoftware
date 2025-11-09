@@ -100,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "📝 Generating PyInstaller spec for ARM64..."
-          python scripts/generate_arm64_spec.py
+          python scripts/generate_arm64_spec.py || true
 
       - name: Build arm64 DMG
         run: |

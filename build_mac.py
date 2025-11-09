@@ -212,10 +212,29 @@ class SimpleMacBuilder:
         # Prepare icon path - convert PNG to ICNS if needed
         icon_path = self._prepare_app_icon()
         
-        cmd = [
-            sys.executable, "-m", "PyInstaller",
-            "PhysioClinicAssistant.spec",
-        ]
+        spec_path = Path("PhysioClinicAssistant.spec")
+        if spec_path.exists():
+            cmd = [
+                sys.executable, "-m", "PyInstaller",
+                str(spec_path),
+            ]
+        else:
+            cmd = [
+                sys.executable, "-m", "PyInstaller",
+                "--clean",
+                "--noconfirm",
+                "--windowed",
+                "--onedir",
+                "--name", self.app_name,
+                "--osx-bundle-identifier", "com.physioclinic.assistant",
+                "--target-arch", "arm64",
+                "--icon", "static/logo.icns",
+                "--collect-all", "pvrecorder",
+                "--collect-all", "faster_whisper",
+                "--collect-all", "llama_cpp",
+                "--collect-all", "transformers",
+                "run_app.py",
+            ]
         
         if not self._run_with_timeout(cmd, timeout=1200, description="PyInstaller main app"):
             return False

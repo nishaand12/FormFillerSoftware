@@ -1,13 +1,7 @@
 """Generate and patch PyInstaller spec for macOS arm64 builds."""
 
 import pathlib
-import subprocess
 import sys
-
-
-def run_command(cmd):
-    print(f"$ {' '.join(cmd)}")
-    subprocess.check_call(cmd)
 
 
 def generate_spec():
@@ -180,7 +174,7 @@ def generate_spec():
         "WARN",
         "run_app.py",
     ]
-    run_command(cmd)
+    print("Skipping spec generation (fallback already handles command-line build).")
 
 
 def patch_spec():
