@@ -96,6 +96,12 @@ jobs:
           echo "🛠️ Preparing runtime dependencies..."
           python -m build_support.prepare_universal_env || true
 
+      - name: Generate PyInstaller ARM64 spec
+        run: |
+          set -euo pipefail
+          echo "📝 Generating PyInstaller spec for ARM64..."
+          python scripts/generate_arm64_spec.py
+
       - name: Build arm64 DMG
         run: |
           set -euo pipefail
