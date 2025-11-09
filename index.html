@@ -283,15 +283,36 @@
             <h3 style="margin-top: 20px;">Why This Happens</h3>
             <p>macOS blocks unsigned apps downloaded from the internet. The command above removes the security flag. This is safe - just make sure you trust the source! Production builds will be signed by Apple and won't need this.</p>
             
-            <h3 style="margin-top: 20px;">Alternative Methods</h3>
+            <h3 style="margin-top: 20px;">To Remove the App and All Related Files</h3>
             <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-top: 10px;">
-                <h4 style="margin-bottom: 10px;">Right-Click Method</h4>
-                <ol style="padding-left: 20px; line-height: 1.8;">
-                    <li>Right-click the DMG file</li>
-                    <li>Click "Open"</li>
-                    <li>Click "Open" again in the dialog</li>
-                </ol>
-                <p style="margin-top: 10px;"><em>If you still see "damaged", use the Terminal command instead.</em></p>
+                <h4 style="margin-bottom: 10px;">Open Terminal and run the below commands in sequence:</h4>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
+                        # Remove the app bundle (adjust the path if you stored it elsewhere)
+                        rm -rf /Applications/PhysioClinicAssistant.app
+                        
+                        # Wipe app support data (supabase configs, preferences, local DBs, downloads)
+                        rm -rf ~/Library/Application\ Support/PhysioClinicAssistant
+                        rm -rf ~/Library/Application\ Support/PhysioClinicAssistantModels
+                        rm -rf ~/Library/Application\ Support/PhysioClinicAssistantSetup
+                        
+                        # Clear caches
+                        rm -rf ~/Library/Caches/com.physioclinic.assistant
+                        rm -rf ~/Library/Caches/PhysioClinicAssistant
+                        
+                        # Delete logs (optional)
+                        rm -rf ~/Library/Logs/PhysioClinicAssistant
+                        rm -rf ~/Library/Logs/com.physioclinic.assistant
+                        
+                        # Remove preferences / plist (optional)
+                        rm -f ~/Library/Preferences/com.physioclinic.assistant.plist
+                        
+                        # Drop saved application state (optional)
+                        rm -rf ~/Library/Saved\ Application\ State/com.physioclinic.assistant.savedState
+                        
+                        # Remove quarantine attributes if Gatekeeper flags lingered (optional)
+                        xattr -cr ~/Downloads/PhysioClinicAssistant*.dmg ~/Downloads/PhysioClinicAssistant.app >/dev/null 2>&1
+                    </div>
+                    <p>Done! Your system is free of all files.</p>
             </div>
             
             <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-top: 15px;">
