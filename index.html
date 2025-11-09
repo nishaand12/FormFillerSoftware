@@ -289,26 +289,32 @@
                     <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Remove the app bundle (adjust the path if you stored it elsewhere)
                         rm -rf /Applications/PhysioClinicAssistant.app
-                        
+                    </div>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Wipe app support data (supabase configs, preferences, local DBs, downloads)
                         rm -rf ~/Library/Application\ Support/PhysioClinicAssistant
                         rm -rf ~/Library/Application\ Support/PhysioClinicAssistantModels
                         rm -rf ~/Library/Application\ Support/PhysioClinicAssistantSetup
-                        
+                    </div>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Clear caches
                         rm -rf ~/Library/Caches/com.physioclinic.assistant
                         rm -rf ~/Library/Caches/PhysioClinicAssistant
-                        
+                    </div>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Delete logs (optional)
                         rm -rf ~/Library/Logs/PhysioClinicAssistant
                         rm -rf ~/Library/Logs/com.physioclinic.assistant
-                        
+                    </div>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Remove preferences / plist (optional)
                         rm -f ~/Library/Preferences/com.physioclinic.assistant.plist
-                        
+                    </div>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Drop saved application state (optional)
                         rm -rf ~/Library/Saved\ Application\ State/com.physioclinic.assistant.savedState
-                        
+                    </div>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
                         # Remove quarantine attributes if Gatekeeper flags lingered (optional)
                         xattr -cr ~/Downloads/PhysioClinicAssistant*.dmg ~/Downloads/PhysioClinicAssistant.app >/dev/null 2>&1
                     </div>
