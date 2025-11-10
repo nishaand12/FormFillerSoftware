@@ -605,8 +605,8 @@ Thank you for using Physio Clinic Assistant!
             self._log_progress("Skipping signature verification (SKIP_CODESIGN_VERIFY=1)")
         else:
             cmd = ["codesign", "--verify", "--deep", "--strict", "--verbose=4", str(app_path)]
-            # Increased timeout to 180s for large bundles in CI
-            if not self._run_with_timeout(cmd, timeout=180, description=f"Verify {app_path.name}"):
+            # Increased timeout to handle large bundles in CI
+            if not self._run_with_timeout(cmd, timeout=600, description=f"Verify {app_path.name}"):
                 self._log_progress("WARNING - Verification failed but continuing build", "WARNING")
                 # Don't fail the build if verification times out - the signing itself succeeded
         
@@ -638,7 +638,9 @@ Thank you for using Physio Clinic Assistant!
                 "--key", self.notarization_key_path,
                 "--key-id", self.notarization_key_id,
                 "--issuer", self.notarization_issuer_id,
-                "--wait"
+                "--primary-bundle-id", self.bundle_identifier,
+                "--wait",
+                "--progress",
             ]
         else:
             cmd = [
@@ -646,10 +648,12 @@ Thank you for using Physio Clinic Assistant!
                 "--team-id", self.notarization_team_id,
                 "--apple-id", self.notarization_username,
                 "--password", self.notarization_password,
-                "--wait"
+                "--primary-bundle-id", self.bundle_identifier,
+                "--wait",
+                "--progress",
             ]
         
-        if not self._run_with_timeout(cmd, timeout=1800, description="Submit for notarization"):  # 30 min timeout
+        if not self._run_with_timeout(cmd, timeout=3600, description="Submit for notarization"):  # 60 min timeout
             return False
         
         # Staple the notarization

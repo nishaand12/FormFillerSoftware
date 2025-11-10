@@ -140,6 +140,31 @@ jobs:
           echo "🔨 Building notarized arm64 DMG..."
           python build_mac.py
 
+      - name: Bundle diagnostics
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -d "dist/PhysioClinicAssistant.app" ]; then
+            echo "📦 App bundle size:"
+            du -sh dist/PhysioClinicAssistant.app
+            echo ""
+            echo "📂 Size of top-level Contents items:"
+            du -sh dist/PhysioClinicAssistant.app/Contents/* 2>/dev/null | sort -hr | head -n 20 || true
+            echo ""
+            echo "🧩 Largest framework binaries:"
+            find dist/PhysioClinicAssistant.app/Contents/Frameworks -type f \( -name "*.dylib" -o -name "*.so" -o -name "*.framework" \) -print0 2>/dev/null | xargs -0 du -sh 2>/dev/null | sort -hr | head -n 20 || true
+            echo ""
+            echo "🔐 codesign verification timing:"
+            /usr/bin/time -l codesign --verify --deep --strict --verbose=4 dist/PhysioClinicAssistant.app || true
+          else
+            echo "⚠️ dist/PhysioClinicAssistant.app not found; skipping diagnostics."
+          fi
+          if compgen -G "PhysioClinicAssistant-*-macOS.dmg" > /dev/null; then
+            echo ""
+            echo "💾 DMG size:"
+            du -sh PhysioClinicAssistant-*-macOS.dmg
+          fi
+
       - name: Verify arm64 binaries
         run: |
           set -euo pipefail
@@ -175,6 +200,25 @@ jobs:
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           mv "PhysioClinicAssistant-${VERSION}-macOS.dmg" "PhysioClinicAssistant-${VERSION}-macOS-arm64.dmg"
           ls -lh PhysioClinicAssistant-*-macOS-arm64.dmg
+
+      - name: Notarization submission history (latest)
+        if: always()
+        env:
+          AC_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_ISSUER_ID: ${{ secrets.AC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ -f "${NOTARIZATION_KEY_PATH}" ]; then
+            echo "🗒️ Recent notarization submissions:"
+            xcrun notarytool history \
+              --key "${NOTARIZATION_KEY_PATH}" \
+              --key-id "${AC_KEY_ID}" \
+              --issuer "${AC_ISSUER_ID}" \
+              --limit 5 \
+              --format json || true
+          else
+            echo "⚠️ Notarization key path not found; skipping history."
+          fi
 
       - name: Upload arm64 DMG artifact
         uses: actions/upload-artifact@v4
