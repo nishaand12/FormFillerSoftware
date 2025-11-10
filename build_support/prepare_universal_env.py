@@ -16,7 +16,7 @@ import os
 import platform
 import shutil
 import subprocess
-import tarfile
+import json
 import tempfile
 from pathlib import Path
 from typing import Dict, Optional
@@ -26,9 +26,7 @@ LLAMA_CPP_VERSION = "0.3.16"
 
 FFMPEG_RELEASES: Dict[str, Dict[str, str]] = {
     "macos-universal": {
-        "url": "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/autobuild-2024-09-28-14-24/ffmpeg-N-118269-g1727b7eb53-macos-universal.tar.xz",
-        "sha256": "9a4f6d8a97de7a0c495187b316985cbb46b40df346e1db4dc67e1996f7b9c6dd",
-        "archive_root": "ffmpeg-N-118269-g1727b7eb53-macos-universal"
+        "url": "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip",
     }
 }
 
@@ -128,19 +126,32 @@ def _stage_ffmpeg_binaries() -> bool:
         return True
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        archive_path = Path(tmpdir) / "ffmpeg.tar.xz"
+        archive_path = Path(tmpdir) / "ffmpeg.zip"
         try:
-            _download_file(release["url"], archive_path, release.get("sha256"))
+            _download_file(release["url"], archive_path)
         except Exception as exc:
             _log(f"Warning: Unable to download ffmpeg bundle ({exc}); continuing without staging ffmpeg")
             return False
 
-        with tarfile.open(archive_path, "r:xz") as tar:
-            tar.extractall(tmpdir)
+        import zipfile
 
-        root = Path(tmpdir) / release["archive_root"]
-        candidate_ffmpeg = root / "bin" / "ffmpeg"
-        candidate_ffprobe = root / "bin" / "ffprobe"
+        with zipfile.ZipFile(archive_path) as zf:
+            root_candidates = {Path(member.filename).parts[0] for member in zf.infolist() if not member.is_dir()}
+            if not root_candidates:
+                _log("Unexpected archive structure; ffmpeg binaries not found")
+                return False
+
+            root_name = sorted(root_candidates)[0]
+            zf.extractall(tmpdir)
+
+        root = Path(tmpdir) / root_name
+        candidate_ffmpeg = root / "ffmpeg"
+        candidate_ffprobe = root / "ffprobe"
+
+        if not candidate_ffmpeg.exists() or not candidate_ffprobe.exists():
+            # Some Evermeet distributions embed binaries under bin/
+            candidate_ffmpeg = root / "bin" / "ffmpeg"
+            candidate_ffprobe = root / "bin" / "ffprobe"
 
         if not candidate_ffmpeg.exists() or not candidate_ffprobe.exists():
             _log("Unexpected archive structure; ffmpeg binaries not found")
