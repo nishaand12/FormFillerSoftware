@@ -22,6 +22,7 @@ class SimpleMacBuilder:
         self.app_name = "PhysioClinicAssistant"
         self.installer_name = "PhysioClinicAssistant-Installer"
         self.dmg_name = f"{self.app_name}-{self.version}-macOS.dmg"
+        self.bundle_identifier = os.getenv("APP_BUNDLE_ID", "com.ceteasystems.formfiller")
         
         # Build directories
         self.build_dir = Path("build")
@@ -30,9 +31,13 @@ class SimpleMacBuilder:
         
         # Code signing (set these environment variables)
         self.signing_identity = os.getenv("SIGNING_IDENTITY", "")
+        # Support both classic Apple ID credentials and App Store Connect API key notarization
         self.notarization_team_id = os.getenv("NOTARIZATION_TEAM_ID", "")
         self.notarization_username = os.getenv("NOTARIZATION_USERNAME", "")
         self.notarization_password = os.getenv("NOTARIZATION_PASSWORD", "")
+        self.notarization_key_id = os.getenv("NOTARIZATION_KEY_ID", "")
+        self.notarization_issuer_id = os.getenv("NOTARIZATION_ISSUER_ID", "")
+        self.notarization_key_path = os.getenv("NOTARIZATION_KEY_PATH", "")
         
         # Progress tracking
         self.current_step = 0
@@ -226,7 +231,7 @@ class SimpleMacBuilder:
                 "--windowed",
                 "--onedir",
                 "--name", self.app_name,
-                "--osx-bundle-identifier", "com.physioclinic.assistant",
+                "--osx-bundle-identifier", self.bundle_identifier,
                 "--target-arch", "arm64",
                 "--icon", "static/logo.icns",
                 "--collect-all", "pvrecorder",
@@ -279,6 +284,7 @@ class SimpleMacBuilder:
                 plist_data = plistlib.load(f)
             
             # Add/update required keys for functionality
+            plist_data['CFBundleIdentifier'] = self.bundle_identifier
             plist_data['NSMicrophoneUsageDescription'] = "This app needs microphone access to record patient appointments."
             plist_data['NSAudioRecorderUsageDescription'] = "This app needs audio recording access to record patient appointments."
             
@@ -564,24 +570,24 @@ Thank you for using Physio Clinic Assistant!
         # Remove quarantine attributes first
         subprocess.run(["xattr", "-cr", str(app_path)], capture_output=True, check=False)
         
+        runtime_options = ["--options", "runtime"] if signing_identity != "-" else []
+
         # Sign all dylibs and frameworks first
         for lib_pattern in ["*.dylib", "*.so"]:
             libs = list(app_path.rglob(lib_pattern))
             for lib in libs:
-                cmd = [
-                    "codesign", "--force", "--sign", signing_identity,
-                    "--options", "runtime"
-                ]
-                if entitlements_file.exists():
-                    cmd.extend(["--entitlements", str(entitlements_file)])
+                cmd = ["codesign", "--force", "--sign", signing_identity]
+                if runtime_options:
+                    cmd.extend(runtime_options)
                 cmd.append(str(lib))
                 subprocess.run(cmd, capture_output=True, check=False)
         
         # Sign the app bundle
         cmd = [
             "codesign", "--force", "--deep", "--sign", signing_identity,
-            "--options", "runtime",
         ]
+        if runtime_options:
+            cmd.extend(runtime_options)
         
         # Add entitlements if available
         if entitlements_file.exists():
@@ -598,7 +604,7 @@ Thank you for using Physio Clinic Assistant!
         if skip_verify:
             self._log_progress("Skipping signature verification (SKIP_CODESIGN_VERIFY=1)")
         else:
-            cmd = ["codesign", "--verify", "--verbose=4", str(app_path)]
+            cmd = ["codesign", "--verify", "--deep", "--strict", "--verbose=4", str(app_path)]
             # Increased timeout to 180s for large bundles in CI
             if not self._run_with_timeout(cmd, timeout=180, description=f"Verify {app_path.name}"):
                 self._log_progress("WARNING - Verification failed but continuing build", "WARNING")
@@ -609,7 +615,10 @@ Thank you for using Physio Clinic Assistant!
     
     def notarize_app(self, app_path: Path) -> bool:
         """Notarize the application with Apple"""
-        if not all([self.notarization_team_id, self.notarization_username, self.notarization_password]):
+        using_api_key = all([self.notarization_key_id, self.notarization_issuer_id, self.notarization_key_path])
+        using_apple_id = all([self.notarization_team_id, self.notarization_username, self.notarization_password])
+
+        if not using_api_key and not using_apple_id:
             self._log_progress("Notarization credentials not provided - skipping notarization", "WARNING")
             return True
         
@@ -623,13 +632,22 @@ Thank you for using Physio Clinic Assistant!
             return False
         
         # Submit for notarization
-        cmd = [
-            "xcrun", "notarytool", "submit", str(zip_path),
-            "--team-id", self.notarization_team_id,
-            "--apple-id", self.notarization_username,
-            "--password", self.notarization_password,
-            "--wait"
-        ]
+        if using_api_key:
+            cmd = [
+                "xcrun", "notarytool", "submit", str(zip_path),
+                "--key", self.notarization_key_path,
+                "--key-id", self.notarization_key_id,
+                "--issuer", self.notarization_issuer_id,
+                "--wait"
+            ]
+        else:
+            cmd = [
+                "xcrun", "notarytool", "submit", str(zip_path),
+                "--team-id", self.notarization_team_id,
+                "--apple-id", self.notarization_username,
+                "--password", self.notarization_password,
+                "--wait"
+            ]
         
         if not self._run_with_timeout(cmd, timeout=1800, description="Submit for notarization"):  # 30 min timeout
             return False

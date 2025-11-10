@@ -18,11 +18,8 @@ jobs:
     name: Build macOS arm64 DMG
     runs-on: macos-15
     env:
-      SIGNING_IDENTITY: ""
-      NOTARIZATION_TEAM_ID: ""
-      NOTARIZATION_USERNAME: ""
-      NOTARIZATION_PASSWORD: ""
-      SKIP_CODESIGN_VERIFY: "1"
+      SKIP_CODESIGN_VERIFY: "0"
+      APP_BUNDLE_ID: "com.ceteasystems.formfiller"
       CMAKE_ARGS: "-DGGML_CPU_ARM_ENABLE_I8MM=OFF -DGGML_CPU_ARM_USE_I8MM=OFF -DGGML_METAL=ON"
       PIP_EXTRA_INDEX_URL: "https://abetlen.github.io/llama-cpp-python/whl/metal"
     steps:
@@ -34,6 +31,41 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+
+      - name: Import Developer ID certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_CERT }}
+          p12-password: ${{ secrets.DEV_ID_CERT_PASSWORD }}
+
+      - name: Configure notarization credentials
+        env:
+          AC_KEY_B64: ${{ secrets.AC_API_KEY }}
+          AC_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_ISSUER_ID: ${{ secrets.AC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.private_keys"
+          KEY_PATH="${HOME}/.private_keys/AuthKey_${AC_KEY_ID}.p8"
+          printf '%s' "${AC_KEY_B64}" | base64 --decode > "${KEY_PATH}"
+          chmod 600 "${KEY_PATH}"
+          {
+            echo "NOTARIZATION_KEY_PATH=${KEY_PATH}"
+            echo "NOTARIZATION_KEY_ID=${AC_KEY_ID}"
+            echo "NOTARIZATION_ISSUER_ID=${AC_ISSUER_ID}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Detect signing identity
+        run: |
+          set -euo pipefail
+          IDENTITY=$(security find-identity -p codesigning -v | awk -F\" '/Developer ID Application/ {print $2; exit}')
+          if [ -z "${IDENTITY}" ]; then
+            echo "❌ Developer ID Application identity not found in keychain" >&2
+            security find-identity -p codesigning -v
+            exit 1
+          fi
+          echo "Using signing identity: ${IDENTITY}"
+          echo "SIGNING_IDENTITY=${IDENTITY}" >> "${GITHUB_ENV}"
 
       - name: Install build tooling
         run: |
@@ -105,7 +137,7 @@ jobs:
       - name: Build arm64 DMG
         run: |
           set -euo pipefail
-          echo "🔨 Building arm64 DMG with ad-hoc signing..."
+          echo "🔨 Building notarized arm64 DMG..."
           python build_mac.py
 
       - name: Verify arm64 binaries
