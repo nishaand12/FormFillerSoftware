@@ -638,7 +638,6 @@ Thank you for using Physio Clinic Assistant!
                 "--key", self.notarization_key_path,
                 "--key-id", self.notarization_key_id,
                 "--issuer", self.notarization_issuer_id,
-                "--primary-bundle-id", self.bundle_identifier,
                 "--wait",
                 "--progress",
             ]
@@ -648,7 +647,6 @@ Thank you for using Physio Clinic Assistant!
                 "--team-id", self.notarization_team_id,
                 "--apple-id", self.notarization_username,
                 "--password", self.notarization_password,
-                "--primary-bundle-id", self.bundle_identifier,
                 "--wait",
                 "--progress",
             ]
