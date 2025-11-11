@@ -16,7 +16,6 @@ import os
 import platform
 import shutil
 import subprocess
-import json
 import tempfile
 from pathlib import Path
 from typing import Dict, Optional
@@ -26,7 +25,8 @@ LLAMA_CPP_VERSION = "0.3.16"
 
 FFMPEG_RELEASES: Dict[str, Dict[str, str]] = {
     "macos-universal": {
-        "url": "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip",
+        "ffmpeg": "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip",
+        "ffprobe": "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip",
     }
 }
 
@@ -125,45 +125,44 @@ def _stage_ffmpeg_binaries() -> bool:
         _log("ffmpeg binaries already staged")
         return True
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        archive_path = Path(tmpdir) / "ffmpeg.zip"
-        try:
-            _download_file(release["url"], archive_path)
-        except Exception as exc:
-            _log(f"Warning: Unable to download ffmpeg bundle ({exc}); continuing without staging ffmpeg")
-            return False
+    import zipfile
 
-        import zipfile
-
-        with zipfile.ZipFile(archive_path) as zf:
-            root_candidates = {Path(member.filename).parts[0] for member in zf.infolist() if not member.is_dir()}
-            if not root_candidates:
-                _log("Unexpected archive structure; ffmpeg binaries not found")
+    def _extract_single_binary(url: str, destination: Path) -> bool:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / "binary.zip"
+            try:
+                _download_file(url, archive_path)
+            except Exception as exc:  # pragma: no cover - network dependent
+                _log(f"Warning: Unable to download ffmpeg bundle ({exc}); continuing without staging ffmpeg")
                 return False
 
-            root_name = sorted(root_candidates)[0]
-            zf.extractall(tmpdir)
+            with zipfile.ZipFile(archive_path) as zf:
+                payload_files = [info for info in zf.infolist() if not info.is_dir()]
+                if not payload_files:
+                    _log("Unexpected archive structure; ffmpeg binary not found in archive")
+                    return False
 
-        root = Path(tmpdir) / root_name
-        candidate_ffmpeg = root / "ffmpeg"
-        candidate_ffprobe = root / "ffprobe"
+                member = payload_files[0]
+                extract_path = Path(tmpdir) / member.filename
+                zf.extract(member, tmpdir)
 
-        if not candidate_ffmpeg.exists() or not candidate_ffprobe.exists():
-            # Some Evermeet distributions embed binaries under bin/
-            candidate_ffmpeg = root / "bin" / "ffmpeg"
-            candidate_ffprobe = root / "bin" / "ffprobe"
+            shutil.copy2(extract_path, destination)
+            destination.chmod(0o755)
+            return True
 
-        if not candidate_ffmpeg.exists() or not candidate_ffprobe.exists():
-            _log("Unexpected archive structure; ffmpeg binaries not found")
-            return False
+    ffmpeg_ok = _extract_single_binary(release["ffmpeg"], ffmpeg_path)
+    ffprobe_ok = _extract_single_binary(release["ffprobe"], ffprobe_path)
 
-        shutil.copy2(candidate_ffmpeg, ffmpeg_path)
-        shutil.copy2(candidate_ffprobe, ffprobe_path)
-        ffmpeg_path.chmod(0o755)
-        ffprobe_path.chmod(0o755)
+    if ffmpeg_ok and ffprobe_ok:
+        _log(f"ffmpeg staged at {ffmpeg_path}")
+        return True
 
-    _log(f"ffmpeg staged at {ffmpeg_path}")
-    return True
+    if ffmpeg_ok and not ffprobe_ok:
+        _log("ffmpeg binary downloaded but ffprobe missing")
+    elif ffprobe_ok and not ffmpeg_ok:
+        _log("ffprobe binary downloaded but ffmpeg missing")
+
+    return False
 
 
 def ensure_universal_runtime() -> bool:

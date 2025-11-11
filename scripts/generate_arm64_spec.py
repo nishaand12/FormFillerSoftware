@@ -180,6 +180,10 @@ def generate_spec():
 def patch_spec():
     """Ensure target_arch is explicitly set to arm64."""
     spec_path = pathlib.Path("PhysioClinicAssistant.spec")
+    if not spec_path.exists():
+        print("Spec file not found; skipping patch.")
+        return
+
     text = spec_path.read_text()
     if "target_arch='arm64'" not in text:
         text = text.replace("target_arch=None", "target_arch='arm64'")

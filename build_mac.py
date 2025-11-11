@@ -604,11 +604,14 @@ Thank you for using Physio Clinic Assistant!
         if skip_verify:
             self._log_progress("Skipping signature verification (SKIP_CODESIGN_VERIFY=1)")
         else:
-            cmd = ["codesign", "--verify", "--deep", "--strict", "--verbose=4", str(app_path)]
-            # Increased timeout to handle large bundles in CI
-            if not self._run_with_timeout(cmd, timeout=600, description=f"Verify {app_path.name}"):
-                self._log_progress("WARNING - Verification failed but continuing build", "WARNING")
-                # Don't fail the build if verification times out - the signing itself succeeded
+            verify_cmd = ["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app_path)]
+            try:
+                subprocess.run(verify_cmd, check=True, timeout=300)
+                self._log_progress(f"Verification succeeded for {app_path.name}")
+            except subprocess.TimeoutExpired:
+                self._log_progress("WARNING - Verification timed out but continuing build", "WARNING")
+            except subprocess.CalledProcessError as exc:
+                self._log_progress(f"WARNING - Verification failed with exit code {exc.returncode}", "WARNING")
         
         self._log_progress(f"Successfully signed {app_path.name}")
         return True

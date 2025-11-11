@@ -213,9 +213,7 @@ jobs:
             xcrun notarytool history \
               --key "${NOTARIZATION_KEY_PATH}" \
               --key-id "${AC_KEY_ID}" \
-              --issuer "${AC_ISSUER_ID}" \
-              --limit 5 \
-              --format json || true
+              --issuer "${AC_ISSUER_ID}" || true
           else
             echo "⚠️ Notarization key path not found; skipping history."
           fi
