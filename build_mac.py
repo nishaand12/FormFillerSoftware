@@ -11,7 +11,7 @@ import shutil
 import time
 import signal
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class SimpleMacBuilder:
@@ -616,6 +616,97 @@ Thank you for using Physio Clinic Assistant!
         self._log_progress(f"Successfully signed {app_path.name}")
         return True
     
+    def _check_notarization_status(self, submission_id: str) -> Tuple[str, Optional[bool]]:
+        """Check notarization status and return (status, success)
+        Returns: (status_string, is_success)
+        - success=True: Accepted
+        - success=False: Rejected/Invalid
+        - success=None: In Progress or unknown
+        Status can be: 'In Progress', 'Accepted', 'Rejected', 'Invalid', or error message
+        """
+        using_api_key = all([self.notarization_key_id, self.notarization_issuer_id, self.notarization_key_path])
+        
+        try:
+            if using_api_key:
+                cmd = [
+                    "xcrun", "notarytool", "log", submission_id,
+                    "--key", self.notarization_key_path,
+                    "--key-id", self.notarization_key_id,
+                    "--issuer", self.notarization_issuer_id,
+                ]
+            else:
+                cmd = [
+                    "xcrun", "notarytool", "log", submission_id,
+                    "--team-id", self.notarization_team_id,
+                    "--apple-id", self.notarization_username,
+                    "--password", self.notarization_password,
+                ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode != 0:
+                return (f"Error checking status: {result.stderr}", False)
+            
+            # Check history for status (more reliable than log for status)
+            if using_api_key:
+                history_cmd = [
+                    "xcrun", "notarytool", "history",
+                    "--key", self.notarization_key_path,
+                    "--key-id", self.notarization_key_id,
+                    "--issuer", self.notarization_issuer_id,
+                    "--output-format", "json",
+                ]
+            else:
+                history_cmd = [
+                    "xcrun", "notarytool", "history",
+                    "--team-id", self.notarization_team_id,
+                    "--apple-id", self.notarization_username,
+                    "--password", self.notarization_password,
+                    "--output-format", "json",
+                ]
+            
+            history_result = subprocess.run(
+                history_cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if history_result.returncode == 0:
+                try:
+                    history_data = json.loads(history_result.stdout)
+                    for entry in history_data:
+                        if entry.get("id") == submission_id:
+                            status = entry.get("status", "Unknown")
+                            if status == "Accepted":
+                                return ("Accepted", True)
+                            elif status in ["Rejected", "Invalid"]:
+                                return (status, False)
+                            else:
+                                return (status, None)  # In Progress or other
+                except (json.JSONDecodeError, KeyError):
+                    pass
+            
+            # Fallback: parse from log output
+            if "status: Accepted" in result.stdout or "Status: Accepted" in result.stdout:
+                return ("Accepted", True)
+            elif "status: Rejected" in result.stdout or "Status: Rejected" in result.stdout:
+                return ("Rejected", False)
+            elif "status: Invalid" in result.stdout or "Status: Invalid" in result.stdout:
+                return ("Invalid", False)
+            else:
+                return ("In Progress", None)
+                
+        except subprocess.TimeoutExpired:
+            return ("Timeout checking status", False)
+        except Exception as e:
+            return (f"Exception checking status: {e}", False)
+    
     def notarize_app(self, app_path: Path) -> bool:
         """Notarize the application with Apple"""
         using_api_key = all([self.notarization_key_id, self.notarization_issuer_id, self.notarization_key_path])
@@ -634,27 +725,148 @@ Thank you for using Physio Clinic Assistant!
         if not self._run_with_timeout(cmd, timeout=300, description="Create zip for notarization"):
             return False
         
-        # Submit for notarization
+        # Submit for notarization (without --wait to get submission ID immediately)
+        self._log_progress("Submitting for notarization", "Notarization")
         if using_api_key:
-            cmd = [
+            submit_cmd = [
                 "xcrun", "notarytool", "submit", str(zip_path),
                 "--key", self.notarization_key_path,
                 "--key-id", self.notarization_key_id,
                 "--issuer", self.notarization_issuer_id,
-                "--wait",
-                "--progress",
             ]
         else:
-            cmd = [
+            submit_cmd = [
                 "xcrun", "notarytool", "submit", str(zip_path),
                 "--team-id", self.notarization_team_id,
                 "--apple-id", self.notarization_username,
                 "--password", self.notarization_password,
-                "--wait",
-                "--progress",
             ]
         
-        if not self._run_with_timeout(cmd, timeout=3600, description="Submit for notarization"):  # 60 min timeout
+        # Submit and capture submission ID
+        submission_id = None
+        try:
+            result = subprocess.run(
+                submit_cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=300  # 5 min timeout for submission
+            )
+            
+            # Parse submission ID from output (can be JSON or text format)
+            output = result.stdout.strip()
+            
+            # Try JSON format first
+            try:
+                submit_output = json.loads(output)
+                submission_id = submit_output.get("id")
+            except json.JSONDecodeError:
+                # Fall back to text parsing (format: "id: <uuid>")
+                for line in output.split('\n'):
+                    line = line.strip()
+                    if line.startswith('id:'):
+                        submission_id = line.split(':', 1)[1].strip()
+                        break
+            
+            if not submission_id:
+                self._log_progress("Failed to get submission ID from notarization response", "ERROR")
+                print(f"Output: {output}")
+                return False
+            
+            self._log_progress(f"Submitted for notarization (ID: {submission_id[:8]}...)")
+            
+        except subprocess.TimeoutExpired:
+            self._log_progress("Timeout submitting for notarization", "ERROR")
+            return False
+        except subprocess.CalledProcessError as e:
+            self._log_progress(f"Failed to submit for notarization: {e}", "ERROR")
+            if e.stderr:
+                print(f"Error: {e.stderr}")
+            if e.stdout:
+                print(f"Output: {e.stdout}")
+            return False
+        
+        # Wait for notarization with periodic status checks to catch rejections early
+        self._log_progress("Waiting for notarization to complete", "Notarization")
+        max_wait_time = 7200  # 2 hours total
+        check_interval = 30  # Check status every 30 seconds
+        start_time = time.time()
+        last_status_check = 0
+        
+        while time.time() - start_time < max_wait_time:
+            # Check status periodically to catch rejections early
+            elapsed = int(time.time() - start_time)
+            if time.time() - last_status_check >= check_interval:
+                status, success = self._check_notarization_status(submission_id)
+                last_status_check = time.time()
+                
+                if success is True:
+                    self._log_progress(f"Notarization accepted!")
+                    break
+                elif success is False:
+                    # Rejected or Invalid - get detailed log
+                    self._log_progress(f"Notarization {status.lower()}!", "ERROR")
+                    if using_api_key:
+                        log_cmd = [
+                            "xcrun", "notarytool", "log", submission_id,
+                            "--key", self.notarization_key_path,
+                            "--key-id", self.notarization_key_id,
+                            "--issuer", self.notarization_issuer_id,
+                        ]
+                    else:
+                        log_cmd = [
+                            "xcrun", "notarytool", "log", submission_id,
+                            "--team-id", self.notarization_team_id,
+                            "--apple-id", self.notarization_username,
+                            "--password", self.notarization_password,
+                        ]
+                    
+                    log_result = subprocess.run(log_cmd, capture_output=True, text=True, timeout=60)
+                    if log_result.returncode == 0:
+                        print("\n" + "="*80)
+                        print("NOTARIZATION REJECTION LOG:")
+                        print("="*80)
+                        print(log_result.stdout)
+                        print("="*80 + "\n")
+                    else:
+                        print(f"Could not fetch detailed log: {log_result.stderr}")
+                    
+                    return False
+                else:
+                    # Still in progress
+                    self._log_progress(f"Status: {status} ({elapsed}s elapsed)")
+            
+            # Sleep before next check
+            time.sleep(5)  # Check every 5 seconds, but only log every check_interval
+        
+        # Final status check
+        status, success = self._check_notarization_status(submission_id)
+        if success is not True:
+            self._log_progress(f"Notarization did not complete successfully. Final status: {status}", "ERROR")
+            # Try to get log even on timeout
+            if using_api_key:
+                log_cmd = [
+                    "xcrun", "notarytool", "log", submission_id,
+                    "--key", self.notarization_key_path,
+                    "--key-id", self.notarization_key_id,
+                    "--issuer", self.notarization_issuer_id,
+                ]
+            else:
+                log_cmd = [
+                    "xcrun", "notarytool", "log", submission_id,
+                    "--team-id", self.notarization_team_id,
+                    "--apple-id", self.notarization_username,
+                    "--password", self.notarization_password,
+                ]
+            
+            log_result = subprocess.run(log_cmd, capture_output=True, text=True, timeout=60)
+            if log_result.returncode == 0:
+                print("\n" + "="*80)
+                print("NOTARIZATION STATUS LOG:")
+                print("="*80)
+                print(log_result.stdout)
+                print("="*80 + "\n")
+            
             return False
         
         # Staple the notarization
