@@ -624,36 +624,12 @@ Thank you for using Physio Clinic Assistant!
         - success=False: Rejected/Invalid
         - success=None: In Progress or unknown
         Status can be: 'In Progress', 'Accepted', 'Rejected', 'Invalid', or error message
+        Uses history command which works immediately after submission.
         """
         using_api_key = all([self.notarization_key_id, self.notarization_issuer_id, self.notarization_key_path])
         
         try:
-            if using_api_key:
-                cmd = [
-                    "xcrun", "notarytool", "log", submission_id,
-                    "--key", self.notarization_key_path,
-                    "--key-id", self.notarization_key_id,
-                    "--issuer", self.notarization_issuer_id,
-                ]
-            else:
-                cmd = [
-                    "xcrun", "notarytool", "log", submission_id,
-                    "--team-id", self.notarization_team_id,
-                    "--apple-id", self.notarization_username,
-                    "--password", self.notarization_password,
-                ]
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if result.returncode != 0:
-                return (f"Error checking status: {result.stderr}", False)
-            
-            # Check history for status (more reliable than log for status)
+            # Use history command first - it works immediately after submission
             if using_api_key:
                 history_cmd = [
                     "xcrun", "notarytool", "history",
@@ -681,6 +657,7 @@ Thank you for using Physio Clinic Assistant!
             if history_result.returncode == 0:
                 try:
                     history_data = json.loads(history_result.stdout)
+                    # Find our submission in the history
                     for entry in history_data:
                         if entry.get("id") == submission_id:
                             status = entry.get("status", "Unknown")
@@ -689,24 +666,71 @@ Thank you for using Physio Clinic Assistant!
                             elif status in ["Rejected", "Invalid"]:
                                 return (status, False)
                             else:
-                                return (status, None)  # In Progress or other
-                except (json.JSONDecodeError, KeyError):
+                                # In Progress, Pending, or other intermediate status
+                                return (status, None)
+                    # Submission not found in history yet (shouldn't happen, but handle gracefully)
+                    return ("Not found in history (may be processing)", None)
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    # JSON parsing failed, try text format
                     pass
             
-            # Fallback: parse from log output
-            if "status: Accepted" in result.stdout or "Status: Accepted" in result.stdout:
-                return ("Accepted", True)
-            elif "status: Rejected" in result.stdout or "Status: Rejected" in result.stdout:
-                return ("Rejected", False)
-            elif "status: Invalid" in result.stdout or "Status: Invalid" in result.stdout:
-                return ("Invalid", False)
+            # Fallback: try parsing text format history
+            if using_api_key:
+                history_text_cmd = [
+                    "xcrun", "notarytool", "history",
+                    "--key", self.notarization_key_path,
+                    "--key-id", self.notarization_key_id,
+                    "--issuer", self.notarization_issuer_id,
+                ]
             else:
-                return ("In Progress", None)
+                history_text_cmd = [
+                    "xcrun", "notarytool", "history",
+                    "--team-id", self.notarization_team_id,
+                    "--apple-id", self.notarization_username,
+                    "--password", self.notarization_password,
+                ]
+            
+            history_text_result = subprocess.run(
+                history_text_cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if history_text_result.returncode == 0:
+                # Parse text format: look for our submission ID and its status
+                lines = history_text_result.stdout.split('\n')
+                found_id = False
+                for i, line in enumerate(lines):
+                    if submission_id in line:
+                        found_id = True
+                        # Look for status in nearby lines
+                        for j in range(max(0, i-5), min(len(lines), i+5)):
+                            if 'status:' in lines[j].lower():
+                                status_line = lines[j].lower()
+                                if 'accepted' in status_line:
+                                    return ("Accepted", True)
+                                elif 'rejected' in status_line:
+                                    return ("Rejected", False)
+                                elif 'invalid' in status_line:
+                                    return ("Invalid", False)
+                                elif 'in progress' in status_line or 'pending' in status_line:
+                                    return ("In Progress", None)
+                        break
+                
+                if found_id:
+                    return ("In Progress", None)  # Found ID but couldn't parse status
+                else:
+                    return ("Not found in history", None)
+            
+            # If history command failed, return error
+            error_msg = history_result.stderr if history_result.returncode != 0 else "Unknown error"
+            return (f"Error checking history: {error_msg}", None)
                 
         except subprocess.TimeoutExpired:
-            return ("Timeout checking status", False)
+            return ("Timeout checking status", None)
         except Exception as e:
-            return (f"Exception checking status: {e}", False)
+            return (f"Exception checking status: {e}", None)
     
     def notarize_app(self, app_path: Path) -> bool:
         """Notarize the application with Apple"""
@@ -793,6 +817,10 @@ Thank you for using Physio Clinic Assistant!
         check_interval = 30  # Check status every 30 seconds
         start_time = time.time()
         last_status_check = 0
+        
+        # Give Apple's servers a moment to process the submission
+        self._log_progress("Waiting for submission to appear in history...", "Notarization")
+        time.sleep(10)  # Wait 10 seconds before first check
         
         while time.time() - start_time < max_wait_time:
             # Check status periodically to catch rejections early
