@@ -217,18 +217,23 @@ jobs:
             
             echo ""
             echo "📋 Fetching detailed log for most recent submission..."
-            # Get the most recent submission ID from history (try JSON first, fallback to text parsing)
+            # Get the most recent submission ID from history
+            # Try JSON format first
             LATEST_ID=$(xcrun notarytool history \
               --key "${NOTARIZATION_KEY_PATH}" \
               --key-id "${AC_KEY_ID}" \
               --issuer "${AC_ISSUER_ID}" \
               --output-format json 2>/dev/null | \
-              python3 -c "import sys, json; data=json.load(sys.stdin); print(data[0]['id'] if data and len(data) > 0 else '')" 2>/dev/null || \
-              xcrun notarytool history \
+              python3 -c "import sys, json; data=json.load(sys.stdin); print(data[0]['id'] if data and len(data) > 0 and isinstance(data, list) else '')" 2>/dev/null || echo "")
+            
+            # If JSON parsing failed, try text format parsing
+            if [ -z "${LATEST_ID}" ] || [ "${LATEST_ID}" = "null" ]; then
+              LATEST_ID=$(xcrun notarytool history \
                 --key "${NOTARIZATION_KEY_PATH}" \
                 --key-id "${AC_KEY_ID}" \
                 --issuer "${AC_ISSUER_ID}" 2>/dev/null | \
-              grep -E "^id:" | head -1 | awk '{print $2}' || echo "")
+                grep -E "^\s+id:" | head -1 | sed 's/^[[:space:]]*id:[[:space:]]*//' | tr -d '\n' || echo "")
+            fi
             
             if [ -n "${LATEST_ID}" ] && [ "${LATEST_ID}" != "null" ]; then
               echo "Submission ID: ${LATEST_ID}"
@@ -240,6 +245,11 @@ jobs:
                 --issuer "${AC_ISSUER_ID}" || echo "⚠️ Could not fetch log for ${LATEST_ID}"
             else
               echo "⚠️ Could not extract latest submission ID from history"
+              echo "Debug: Trying to parse history output..."
+              xcrun notarytool history \
+                --key "${NOTARIZATION_KEY_PATH}" \
+                --key-id "${AC_KEY_ID}" \
+                --issuer "${AC_ISSUER_ID}" 2>&1 | head -20 || true
             fi
           else
             echo "⚠️ Notarization key path not found; skipping history."
