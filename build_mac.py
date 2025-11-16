@@ -656,23 +656,63 @@ Thank you for using Physio Clinic Assistant!
             
             if history_result.returncode == 0:
                 try:
-                    history_data = json.loads(history_result.stdout)
+                    raw_output = history_result.stdout.strip()
+                    if not raw_output:
+                        return ("Empty history response", None)
+                    
+                    parsed_json = json.loads(raw_output)
+                    
+                    # Handle different JSON response structures
+                    # Could be: list, dict with "history" key, or dict with other structure
+                    history_data = None
+                    
+                    if isinstance(parsed_json, list):
+                        history_data = parsed_json
+                    elif isinstance(parsed_json, dict):
+                        # Try common keys that might contain the list
+                        for key in ["history", "data", "submissions", "items"]:
+                            if key in parsed_json and isinstance(parsed_json[key], list):
+                                history_data = parsed_json[key]
+                                break
+                        
+                        # If still not found, check if dict values contain lists
+                        if history_data is None:
+                            for value in parsed_json.values():
+                                if isinstance(value, list):
+                                    history_data = value
+                                    break
+                        
+                        # Last resort: if dict itself might be the entry (unlikely but handle it)
+                        if history_data is None and "id" in parsed_json:
+                            history_data = [parsed_json]
+                    else:
+                        # Unexpected type
+                        return (f"Unexpected JSON type: {type(parsed_json).__name__}", None)
+                    
                     # Find our submission in the history
-                    for entry in history_data:
-                        if entry.get("id") == submission_id:
-                            status = entry.get("status", "Unknown")
-                            if status == "Accepted":
-                                return ("Accepted", True)
-                            elif status in ["Rejected", "Invalid"]:
-                                return (status, False)
-                            else:
-                                # In Progress, Pending, or other intermediate status
-                                return (status, None)
+                    if history_data and isinstance(history_data, list):
+                        for entry in history_data:
+                            # Ensure entry is a dict before calling .get()
+                            if not isinstance(entry, dict):
+                                continue
+                            if entry.get("id") == submission_id:
+                                status = entry.get("status", "Unknown")
+                                if status == "Accepted":
+                                    return ("Accepted", True)
+                                elif status in ["Rejected", "Invalid"]:
+                                    return (status, False)
+                                else:
+                                    # In Progress, Pending, or other intermediate status
+                                    return (status, None)
+                    
                     # Submission not found in history yet (shouldn't happen, but handle gracefully)
                     return ("Not found in history (may be processing)", None)
-                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                except json.JSONDecodeError as e:
                     # JSON parsing failed, try text format
-                    pass
+                    return ("JSON parse error, trying text format", None)
+                except (KeyError, TypeError, AttributeError) as e:
+                    # Structure error - log and try text format
+                    return (f"JSON structure error: {type(e).__name__}, trying text format", None)
             
             # Fallback: try parsing text format history
             if using_api_key:
