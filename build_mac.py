@@ -911,30 +911,50 @@ Thank you for using Physio Clinic Assistant!
         # Final status check
         status, success = self._check_notarization_status(submission_id)
         if success is not True:
-            self._log_progress(f"Notarization did not complete successfully. Final status: {status}", "ERROR")
-            # Try to get log even on timeout
-            if using_api_key:
-                log_cmd = [
-                    "xcrun", "notarytool", "log", submission_id,
-                    "--key", self.notarization_key_path,
-                    "--key-id", self.notarization_key_id,
-                    "--issuer", self.notarization_issuer_id,
-                ]
-            else:
-                log_cmd = [
-                    "xcrun", "notarytool", "log", submission_id,
-                    "--team-id", self.notarization_team_id,
-                    "--apple-id", self.notarization_username,
-                    "--password", self.notarization_password,
-                ]
+            elapsed_hours = int((time.time() - start_time) / 3600)
+            elapsed_mins = int(((time.time() - start_time) % 3600) / 60)
             
-            log_result = subprocess.run(log_cmd, capture_output=True, text=True, timeout=60)
-            if log_result.returncode == 0:
-                print("\n" + "="*80)
-                print("NOTARIZATION STATUS LOG:")
-                print("="*80)
-                print(log_result.stdout)
-                print("="*80 + "\n")
+            if success is False:
+                # Rejected - get detailed log
+                self._log_progress(f"Notarization {status.lower()}!", "ERROR")
+                if using_api_key:
+                    log_cmd = [
+                        "xcrun", "notarytool", "log", submission_id,
+                        "--key", self.notarization_key_path,
+                        "--key-id", self.notarization_key_id,
+                        "--issuer", self.notarization_issuer_id,
+                    ]
+                else:
+                    log_cmd = [
+                        "xcrun", "notarytool", "log", submission_id,
+                        "--team-id", self.notarization_team_id,
+                        "--apple-id", self.notarization_username,
+                        "--password", self.notarization_password,
+                    ]
+                
+                log_result = subprocess.run(log_cmd, capture_output=True, text=True, timeout=60)
+                if log_result.returncode == 0:
+                    print("\n" + "="*80)
+                    print("NOTARIZATION REJECTION LOG:")
+                    print("="*80)
+                    print(log_result.stdout)
+                    print("="*80 + "\n")
+                else:
+                    print(f"Note: Detailed log not yet available. Check Apple Developer portal for submission ID: {submission_id}")
+            else:
+                # Still in progress - timeout reached
+                self._log_progress(
+                    f"Notarization timeout after {elapsed_hours}h {elapsed_mins}m. Status: {status}", 
+                    "WARNING"
+                )
+                print(f"\n⚠️  Notarization is still in progress after {elapsed_hours}h {elapsed_mins}m.")
+                print(f"   Submission ID: {submission_id}")
+                print(f"   This is normal - notarization can take 5-30 minutes, sometimes longer.")
+                print(f"   Check status manually: xcrun notarytool history --key <key> --key-id <id> --issuer <issuer>")
+                print(f"   Or check Apple Developer portal: https://developer.apple.com/account/resources/identifiers/list")
+                print(f"   The workflow will continue, but DMG may not be notarized yet.\n")
+                # Don't fail the build - allow it to continue and staple later if needed
+                return False
             
             return False
         

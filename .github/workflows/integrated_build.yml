@@ -216,81 +216,9 @@ jobs:
               --issuer "${AC_ISSUER_ID}" || true
             
             echo ""
-            echo "📋 Fetching detailed logs for submissions..."
-            
-            # Get all rejected submission IDs to see why they failed
-            echo ""
-            echo "🔍 Checking rejected submissions for detailed logs:"
-            REJECTED_IDS=$(xcrun notarytool history \
-              --key "${NOTARIZATION_KEY_PATH}" \
-              --key-id "${AC_KEY_ID}" \
-              --issuer "${AC_ISSUER_ID}" \
-              --output-format json 2>/dev/null | \
-              python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    if isinstance(data, list):
-        for entry in data:
-            if isinstance(entry, dict) and entry.get('status') in ['Rejected', 'Invalid']:
-                print(entry.get('id', ''))
-except:
-    pass
-" 2>/dev/null || echo "")
-            
-            if [ -n "${REJECTED_IDS}" ]; then
-              echo "${REJECTED_IDS}" | while read -r REJECTED_ID; do
-                if [ -n "${REJECTED_ID}" ]; then
-                  echo ""
-                  echo "📄 Log for rejected submission ${REJECTED_ID}:"
-                  xcrun notarytool log "${REJECTED_ID}" \
-                    --key "${NOTARIZATION_KEY_PATH}" \
-                    --key-id "${AC_KEY_ID}" \
-                    --issuer "${AC_ISSUER_ID}" 2>&1 || echo "⚠️ Could not fetch log"
-                  echo "---"
-                fi
-              done
-            else
-              echo "No rejected submissions found in JSON format, trying text parsing..."
-              # Fallback: try to get rejected IDs from text format
-              # Parse the history output to find rejected submissions
-              # Format: id comes before status in the output
-              xcrun notarytool history \
-                --key "${NOTARIZATION_KEY_PATH}" \
-                --key-id "${AC_KEY_ID}" \
-                --issuer "${AC_ISSUER_ID}" 2>/dev/null | \
-                python3 -c "
-import sys
-lines = sys.stdin.readlines()
-current_id = None
-for line in lines:
-    line_lower = line.lower()
-    if 'id:' in line_lower:
-        # Extract ID
-        parts = line.split(':', 1)
-        if len(parts) > 1:
-            current_id = parts[1].strip()
-    elif ('status: rejected' in line_lower or 'status: invalid' in line_lower):
-        if current_id:
-            print(current_id)
-        current_id = None
-" 2>/dev/null | \
-                while read -r REJECTED_ID; do
-                  if [ -n "${REJECTED_ID}" ]; then
-                    echo ""
-                    echo "📄 Log for rejected submission ${REJECTED_ID}:"
-                    xcrun notarytool log "${REJECTED_ID}" \
-                      --key "${NOTARIZATION_KEY_PATH}" \
-                      --key-id "${AC_KEY_ID}" \
-                      --issuer "${AC_ISSUER_ID}" 2>&1 || echo "⚠️ Could not fetch log"
-                    echo "---"
-                  fi
-                done || true
-            fi
-            
-            # Also check the most recent submission (even if in progress)
-            echo ""
-            echo "📋 Checking most recent submission:"
+            echo "📋 Fetching detailed log for most recent submission..."
+            # Get the most recent submission ID from history
+            # Try JSON format first
             LATEST_ID=$(xcrun notarytool history \
               --key "${NOTARIZATION_KEY_PATH}" \
               --key-id "${AC_KEY_ID}" \
@@ -298,6 +226,7 @@ for line in lines:
               --output-format json 2>/dev/null | \
               python3 -c "import sys, json; data=json.load(sys.stdin); print(data[0]['id'] if data and len(data) > 0 and isinstance(data, list) else '')" 2>/dev/null || echo "")
             
+            # If JSON parsing failed, try text format parsing
             if [ -z "${LATEST_ID}" ] || [ "${LATEST_ID}" = "null" ]; then
               LATEST_ID=$(xcrun notarytool history \
                 --key "${NOTARIZATION_KEY_PATH}" \
@@ -307,12 +236,35 @@ for line in lines:
             fi
             
             if [ -n "${LATEST_ID}" ] && [ "${LATEST_ID}" != "null" ]; then
-              echo "Most recent submission ID: ${LATEST_ID}"
-              echo "📄 Detailed notarization log (if available):"
-              xcrun notarytool log "${LATEST_ID}" \
+              echo "Submission ID: ${LATEST_ID}"
+              echo ""
+              # Check status first - only fetch log for completed submissions
+              LATEST_STATUS=$(xcrun notarytool history \
                 --key "${NOTARIZATION_KEY_PATH}" \
                 --key-id "${AC_KEY_ID}" \
-                --issuer "${AC_ISSUER_ID}" 2>&1 || echo "⚠️ Log not yet available (submission may still be processing)"
+                --issuer "${AC_ISSUER_ID}" \
+                --output-format json 2>/dev/null | \
+                python3 -c "import sys, json; data=json.load(sys.stdin); entry=next((e for e in data if e.get('id')=='${LATEST_ID}'), {}); print(entry.get('status', 'Unknown'))" 2>/dev/null || echo "Unknown")
+              
+              if [ "${LATEST_STATUS}" = "In Progress" ] || [ "${LATEST_STATUS}" = "Unknown" ]; then
+                echo "📄 Status: ${LATEST_STATUS}"
+                echo "ℹ️  Detailed log is only available after notarization completes (Accepted/Rejected)"
+                echo "   Logs are not available for submissions that are still in progress."
+              else
+                echo "📄 Status: ${LATEST_STATUS}"
+                echo "📄 Detailed notarization log:"
+                xcrun notarytool log "${LATEST_ID}" \
+                  --key "${NOTARIZATION_KEY_PATH}" \
+                  --key-id "${AC_KEY_ID}" \
+                  --issuer "${AC_ISSUER_ID}" 2>&1 || echo "⚠️ Could not fetch log for ${LATEST_ID}"
+              fi
+            else
+              echo "⚠️ Could not extract latest submission ID from history"
+              echo "Debug: Trying to parse history output..."
+              xcrun notarytool history \
+                --key "${NOTARIZATION_KEY_PATH}" \
+                --key-id "${AC_KEY_ID}" \
+                --issuer "${AC_ISSUER_ID}" 2>&1 | head -20 || true
             fi
           else
             echo "⚠️ Notarization key path not found; skipping history."
