@@ -273,6 +273,10 @@ Extract transcript data and return ONLY the JSON object:"""
                         print(f"Manual parsing also failed: {e3}")
                         return {}
             
+        except RuntimeError:
+            # Re-raise RuntimeError (e.g., timeout errors) to allow background processor
+            # to handle it as a stalled job
+            raise
         except Exception as e:
             print("Warning: Llama extraction failed:", str(e))
             
@@ -335,6 +339,9 @@ Extract transcript data and return ONLY the JSON object:"""
             print(f"Extraction saved to: {output_path}")
             return extracted_data
             
+        except RuntimeError:
+            # Re-raise RuntimeError to allow background processor to handle it as a stalled job
+            raise
         except Exception as e:
             print(f"Error extracting data: {e}")
             return {}

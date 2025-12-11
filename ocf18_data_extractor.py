@@ -218,6 +218,10 @@ Extract transcript data and return ONLY the JSON object:"""
                         print(f"Manual parsing failed: {e3}")
 
             return {}
+        except RuntimeError:
+            # Re-raise RuntimeError (e.g., timeout errors) to allow background processor
+            # to handle it as a stalled job
+            raise
         except Exception as e:
             print(f"Warning: OCF-18 extraction failed: {e}")
             return {}
@@ -250,6 +254,9 @@ Extract transcript data and return ONLY the JSON object:"""
 
             print(f"OCF-18 extraction saved to: {output_path}")
             return extracted
+        except RuntimeError:
+            # Re-raise RuntimeError to allow background processor to handle it as a stalled job
+            raise
         except Exception as e:
             print(f"Error extracting OCF-18 data: {e}")
             return {}
