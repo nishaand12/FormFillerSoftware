@@ -7,6 +7,7 @@ Provides a user-friendly interface for managing application settings
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Dict, Any
+import sys
 from database_manager import DatabaseManager
 
 
@@ -177,6 +178,15 @@ class SettingsGUI:
         quality_combo.grid(row=row, column=1, sticky=tk.W, pady=5)
         ttk.Label(parent, text="Audio recording quality setting").grid(row=row, column=2, sticky=tk.W, pady=5)
         row += 1
+        
+        # Microphone permissions button (macOS only)
+        if sys.platform == 'darwin':
+            ttk.Label(parent, text="Microphone Access:").grid(row=row, column=0, sticky=tk.W, pady=5)
+            request_permission_button = ttk.Button(parent, text="Request Microphone Access", 
+                                                   command=self.request_microphone_permission)
+            request_permission_button.grid(row=row, column=1, sticky=tk.W, pady=5)
+            ttk.Label(parent, text="Request microphone permission from macOS").grid(row=row, column=2, sticky=tk.W, pady=5)
+            row += 1
     
     def create_patient_settings(self, parent):
         """Create patient management settings widgets"""
@@ -247,3 +257,107 @@ class SettingsGUI:
         if self.settings_window:
             self.settings_window.destroy()
             self.settings_window = None
+    
+    def request_microphone_permission(self):
+        """Request microphone permission by attempting to initialize the recorder"""
+        try:
+            # Show info message
+            messagebox.showinfo(
+                "Requesting Microphone Access",
+                "This will attempt to request microphone access.\n\n"
+                "If a permission dialog appears, please click 'Allow' or 'OK'.\n\n"
+                "If no dialog appears, you may need to:\n"
+                "1. Open System Settings > Privacy & Security > Microphone\n"
+                "2. Enable access for 'Physio Clinic Assistant'\n"
+                "3. Restart the application"
+            )
+            
+            # Attempt to initialize pvrecorder which will trigger the permission dialog
+            try:
+                import pvrecorder
+                
+                # Create a temporary recorder instance to trigger permission dialog
+                recorder = pvrecorder.PvRecorder(
+                    frame_length=512,
+                    device_index=-1,
+                    buffered_frames_count=10
+                )
+                
+                # Start the recorder (this will trigger permission dialog if not already granted)
+                recorder.start()
+                
+                # Try to read a frame to verify access
+                try:
+                    test_frame = recorder.read()
+                    if test_frame is not None:
+                        # Success - permission granted
+                        recorder.stop()
+                        recorder.delete()
+                        messagebox.showinfo(
+                            "Success",
+                            "Microphone access has been granted!\n\n"
+                            "You can now use the recording feature."
+                        )
+                    else:
+                        recorder.stop()
+                        recorder.delete()
+                        messagebox.showwarning(
+                            "Permission Status Unknown",
+                            "Could not verify microphone access.\n\n"
+                            "Please check System Settings > Privacy & Security > Microphone\n"
+                            "and ensure 'Physio Clinic Assistant' is enabled."
+                        )
+                except Exception as e:
+                    recorder.stop()
+                    recorder.delete()
+                    # Check if this is a permission error
+                    error_msg = str(e).lower()
+                    if "permission" in error_msg or "denied" in error_msg or "authorized" in error_msg:
+                        messagebox.showwarning(
+                            "Permission Denied",
+                            "Microphone access was denied.\n\n"
+                            "To enable access:\n"
+                            "1. Open System Settings > Privacy & Security > Microphone\n"
+                            "2. Enable access for 'Physio Clinic Assistant'\n"
+                            "3. Restart this application"
+                        )
+                    else:
+                        messagebox.showerror(
+                            "Error",
+                            f"An error occurred while testing microphone access:\n{str(e)}\n\n"
+                            "Please check System Settings > Privacy & Security > Microphone"
+                        )
+                        
+            except ImportError:
+                messagebox.showerror(
+                    "Error",
+                    "Could not import pvrecorder library.\n\n"
+                    "Please ensure all dependencies are installed."
+                )
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "permission" in error_msg or "denied" in error_msg or "authorized" in error_msg:
+                    messagebox.showwarning(
+                        "Permission Required",
+                        "Microphone permission is required.\n\n"
+                        "If a permission dialog appeared, please click 'Allow'.\n\n"
+                        "If no dialog appeared:\n"
+                        "1. Open System Settings > Privacy & Security > Microphone\n"
+                        "2. Enable access for 'Physio Clinic Assistant'\n"
+                        "3. Restart this application"
+                    )
+                else:
+                    # The permission dialog may have appeared - this is expected
+                    # We'll show a message that the user should check the dialog
+                    messagebox.showinfo(
+                        "Permission Dialog",
+                        "A permission dialog should have appeared.\n\n"
+                        "If you see it, please click 'Allow'.\n\n"
+                        "After granting permission, you may need to restart the application."
+                    )
+                    
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"An unexpected error occurred:\n{str(e)}"
+            )

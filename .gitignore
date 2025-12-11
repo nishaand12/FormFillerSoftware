@@ -27,11 +27,14 @@ wheels/
 
 # Build artifacts
 *.spec
+!PhysioClinicAssistant.spec  # Keep our main spec file
 *.dmg
 temp_*.dmg
 build/
 dist/
 dmg_contents/
+build_logs/  # Build log directory (keeps last 5 logs)
+*.log  # Individual log files in root (legacy)
 
 # User Data (IMPORTANT: Never commit user data!)
 data/
@@ -54,6 +57,14 @@ Thumbs.db
 # Sensitive files
 config/supabase_config.json
 encryption_keys.json
+.env
+.env.local
+.env.production
+local_build_config.sh
+venv_setup.sh
+temp_env.sh
+*.p12
+*.p8
 
 # Keep docs/downloads/ but ignore DMG files (too large - use GitHub Releases instead)
 downloads/

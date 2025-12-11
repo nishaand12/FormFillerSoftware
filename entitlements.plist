@@ -2,21 +2,36 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Disable library validation for bundled native dependencies -->
+    <!-- Essential: Disable library validation for Python and ML libraries -->
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
     
-    <!-- Allow unsigned executable memory (needed for some Python libraries) -->
+    <!-- Essential: Allow unsigned executable memory (required for Python C extensions) -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
     
-    <!-- Allow JIT compilation (needed for some ML libraries) -->
+    <!-- Essential: Allow JIT compilation (required for ML/AI libraries) -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
 
-    <!-- Permit selected dyld environment modifiers required by Python -->
+    <!-- Essential: Allow dyld environment variables (required for Python) -->
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    
+    <!-- Hardened Runtime: Disable debugger attachment -->
+    <key>com.apple.security.cs.debugger</key>
+    <false/>
+    
+    <!-- Application Features: Network access (Supabase, model downloads) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- Application Features: File access (save forms/appointments) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    
+    <!-- Application Features: Microphone access (audio recording) -->
+    <key>com.apple.security.device.audio-input</key>
     <true/>
 </dict>
 </plist>
-

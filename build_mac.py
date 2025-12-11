@@ -13,6 +13,7 @@ import signal
 import json
 from pathlib import Path
 from typing import Optional, Tuple
+from datetime import datetime
 
 
 class SimpleMacBuilder:
@@ -23,27 +24,20 @@ class SimpleMacBuilder:
         self.app_name = "PhysioClinicAssistant"
         self.installer_name = "PhysioClinicAssistant-Installer"
         self.dmg_name = f"{self.app_name}-{self.version}-macOS.dmg"
-        self.bundle_identifier = os.getenv("APP_BUNDLE_ID", "com.ceteasystems.formfiller")
+        self.bundle_identifier = os.getenv("APP_BUNDLE_ID", "com.ceteasystems.physioclinicassistant")
         
         # Build directories
         self.build_dir = Path("build")
         self.dist_dir = Path("dist")
         self.dmg_dir = Path("dmg_contents")
         
-        # Code signing (set these environment variables)
-        self.signing_identity = os.getenv("SIGNING_IDENTITY", "")
-        # Support both classic Apple ID credentials and App Store Connect API key notarization
-        self.notarization_team_id = os.getenv("NOTARIZATION_TEAM_ID", "")
-        self.notarization_username = os.getenv("NOTARIZATION_USERNAME", "")
-        self.notarization_password = os.getenv("NOTARIZATION_PASSWORD", "")
-        self.notarization_key_id = os.getenv("NOTARIZATION_KEY_ID", "")
-        self.notarization_issuer_id = os.getenv("NOTARIZATION_ISSUER_ID", "")
-        self.notarization_key_path = os.getenv("NOTARIZATION_KEY_PATH", "")
-        
         # Progress tracking
         self.current_step = 0
-        self.total_steps = 7  # Prepare deps, clean, build, sign, notarize, dmg, cleanup
+        self.total_steps = 4  # Prepare deps, clean, build, cleanup
         self.start_time = time.time()
+        
+        # Single build log file (timestamped to avoid duplicates)
+        self.log_file = self._setup_log_file()
         
     def _get_version(self) -> str:
         """Get application version from VERSION file"""
@@ -53,6 +47,33 @@ class SimpleMacBuilder:
         except FileNotFoundError:
             return "2.0.0"
     
+    def _setup_log_file(self) -> Optional[Path]:
+        """Setup a single build log file and clean up old logs"""
+        try:
+            # Create build log directory
+            log_dir = Path("build_logs")
+            log_dir.mkdir(exist_ok=True)
+            
+            # Clean up old log files (keep only last 5)
+            log_files = sorted(log_dir.glob("build_*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+            for old_log in log_files[5:]:  # Keep only 5 most recent
+                old_log.unlink()
+            
+            # Create timestamped log file (single file per build)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_file = log_dir / f"build_{timestamp}.log"
+            
+            # Write initial header
+            with open(log_file, 'w') as f:
+                f.write(f"Build Log for {self.app_name} v{self.version}\n")
+                f.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("=" * 80 + "\n\n")
+            
+            return log_file
+        except Exception as e:
+            print(f"Warning: Could not setup log file: {e}")
+            return None
+    
     def _log_progress(self, message: str, step_name: str = ""):
         """Log progress with step counter and elapsed time"""
         self.current_step += 1
@@ -60,30 +81,52 @@ class SimpleMacBuilder:
         elapsed_str = f"{elapsed:.1f}s"
         
         if step_name:
-            print(f"[{self.current_step}/{self.total_steps}] {step_name} - {message} ({elapsed_str})")
+            log_msg = f"[{self.current_step}/{self.total_steps}] {step_name} - {message} ({elapsed_str})"
         else:
-            print(f"[{self.current_step}/{self.total_steps}] {message} ({elapsed_str})")
+            log_msg = f"[{self.current_step}/{self.total_steps}] {message} ({elapsed_str})"
+        
+        # Print to console
+        print(log_msg)
+        
+        # Write to log file
+        if self.log_file:
+            try:
+                with open(self.log_file, 'a') as f:
+                    f.write(log_msg + "\n")
+            except Exception:
+                pass  # Don't fail if log write fails
     
     def _run_with_timeout(self, cmd: list, timeout: int = 1800, description: str = "") -> bool:
-        """Run command with timeout and progress tracking"""
+        """Run command with timeout, progress tracking, and streaming output to log"""
         if description:
             self._log_progress(f"Starting: {description}")
         
+        # Log the command being run
+        if self.log_file:
+            try:
+                with open(self.log_file, 'a') as f:
+                    f.write(f"Command: {' '.join(cmd)}\n\n")
+            except Exception:
+                pass
+        
         try:
-            # Start process
+            # Start process with streaming output
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
                 text=True,
                 bufsize=1,
                 universal_newlines=True
             )
             
-            # Monitor progress with timeout
+            # Monitor progress with timeout and stream output
             start_time = time.time()
             last_output_time = start_time
+            last_progress_time = start_time
+            output_lines = []
             
+            # Stream output in real-time
             while process.poll() is None:
                 # Check timeout
                 if time.time() - start_time > timeout:
@@ -91,31 +134,83 @@ class SimpleMacBuilder:
                     self._log_progress(f"Timeout after {timeout}s: {description}", "ERROR")
                     return False
                 
-                # Check for output (indicates progress)
+                # Read available output (non-blocking)
                 try:
-                    process.wait(timeout=1)
-                except subprocess.TimeoutExpired:
-                    # Still running, check if we should show progress
-                    if time.time() - last_output_time > 30:  # Show progress every 30s
-                        elapsed = time.time() - start_time
-                        self._log_progress(f"Still running... ({elapsed:.0f}s elapsed)")
+                    line = process.stdout.readline()
+                    if line:
+                        line = line.rstrip()
+                        output_lines.append(line)
                         last_output_time = time.time()
+                        
+                        # Write to log file immediately
+                        if self.log_file:
+                            try:
+                                with open(self.log_file, 'a') as f:
+                                    f.write(line + "\n")
+                            except Exception:
+                                pass
+                        
+                        # Print important lines to console (filter verbose output)
+                        if any(keyword in line.lower() for keyword in ['error', 'warning', 'failed', 'success', 'complete']):
+                            print(f"  {line}")
+                    else:
+                        # No output, check if we should show progress
+                        if time.time() - last_progress_time > 30:  # Show progress every 30s
+                            elapsed = time.time() - start_time
+                            self._log_progress(f"Still running... ({elapsed:.0f}s elapsed)")
+                            last_progress_time = time.time()
+                        
+                        # Small sleep to avoid busy-waiting
+                        time.sleep(0.1)
+                except Exception:
+                    # If readline fails, wait a bit and check process status
+                    time.sleep(0.1)
                     continue
             
-            # Get final result
-            stdout, stderr = process.communicate()
+            # Get any remaining output
+            remaining_output = process.stdout.read()
+            if remaining_output:
+                output_lines.extend(remaining_output.rstrip().split('\n'))
+                if self.log_file:
+                    try:
+                        with open(self.log_file, 'a') as f:
+                            f.write(remaining_output)
+                    except Exception:
+                        pass
             
+            # Check result
             if process.returncode == 0:
                 self._log_progress(f"Completed: {description}")
                 return True
             else:
                 self._log_progress(f"Failed: {description}", "ERROR")
-                if stderr:
-                    print(f"Error: {stderr}")
+                # Write error summary to log
+                if self.log_file:
+                    try:
+                        with open(self.log_file, 'a') as f:
+                            f.write(f"\n{'='*80}\n")
+                            f.write(f"BUILD FAILED - Return code: {process.returncode}\n")
+                            f.write(f"{'='*80}\n")
+                    except Exception:
+                        pass
+                # Print last few error lines to console
+                error_lines = [line for line in output_lines if any(kw in line.lower() for kw in ['error', 'failed', 'exception'])]
+                if error_lines:
+                    print("\nLast error lines:")
+                    for line in error_lines[-5:]:  # Show last 5 error lines
+                        print(f"  {line}")
                 return False
                 
         except Exception as e:
             self._log_progress(f"Exception: {description} - {e}", "ERROR")
+            if self.log_file:
+                try:
+                    with open(self.log_file, 'a') as f:
+                        f.write(f"\nException: {e}\n")
+                        import traceback
+                        f.write(traceback.format_exc())
+                except Exception:
+                    pass
             return False
     
     def clean_build_dirs(self) -> bool:
@@ -127,9 +222,15 @@ class SimpleMacBuilder:
             if dir_path.exists():
                 shutil.rmtree(dir_path)
         
-        # Clean spec files
+        # Clean auto-generated spec files (but preserve our source-controlled spec file)
+        # PyInstaller may generate temporary spec files, but we want to keep PhysioClinicAssistant.spec
+        main_spec_file = Path('PhysioClinicAssistant.spec')
         for spec_file in Path('.').glob('*.spec'):
-            spec_file.unlink()
+            # Only delete if it's not our main source-controlled spec file
+            # Use resolve() to handle absolute vs relative path comparisons
+            if spec_file.resolve() != main_spec_file.resolve():
+                self._log_progress(f"Removing auto-generated spec file: {spec_file.name}")
+                spec_file.unlink()
         
         return True
     
@@ -218,13 +319,41 @@ class SimpleMacBuilder:
         # Prepare icon path - convert PNG to ICNS if needed
         icon_path = self._prepare_app_icon()
         
-        spec_path = Path("PhysioClinicAssistant.spec")
+        # Find spec file - try current working directory first (most reliable)
+        spec_path = Path.cwd() / "PhysioClinicAssistant.spec"
+        if not spec_path.exists():
+            # Fallback: try script directory if __file__ is available
+            try:
+                script_dir = Path(__file__).parent.absolute()
+                spec_path = script_dir / "PhysioClinicAssistant.spec"
+            except NameError:
+                pass  # __file__ not available, already tried cwd
+        
         if spec_path.exists():
+            # Use spec file - Info.plist is already configured in the spec file
+            self._log_progress("Using spec file (Info.plist configured in spec)", "Main App")
             cmd = [
                 sys.executable, "-m", "PyInstaller",
+                "--clean",
+                "--noconfirm",
                 str(spec_path),
             ]
+            if not self._run_with_timeout(cmd, timeout=1200, description="PyInstaller main app"):
+                return False
+            
+            # Verify Info.plist was created correctly
+            app_path = self.dist_dir / f"{self.app_name}.app"
+            info_plist_path = app_path / "Contents" / "Info.plist"
+            if info_plist_path.exists():
+                self._log_progress("Info.plist created from spec file")
+                # Still need to set executable permissions
+                return self._set_app_permissions(app_path)
+            else:
+                self._log_progress("Info.plist not found after build", "ERROR")
+                return False
         else:
+            # Fallback: command-line build (should not happen if spec file exists)
+            self._log_progress("Spec file not found - using command-line build", "WARNING")
             cmd = [
                 sys.executable, "-m", "PyInstaller",
                 "--clean",
@@ -239,6 +368,8 @@ class SimpleMacBuilder:
                 "--collect-all", "faster_whisper",
                 "--collect-all", "llama_cpp",
                 "--collect-all", "transformers",
+                "--hidden-import", "tkinter",
+                "--hidden-import", "_tkinter",
                 "--add-data", "config:config",
                 "--add-data", "forms:forms",
                 "--add-data", "auth:auth",
@@ -255,12 +386,12 @@ class SimpleMacBuilder:
                 "--add-data", "requirements.txt:.",
                 "run_app.py",
             ]
-        
-        if not self._run_with_timeout(cmd, timeout=1200, description="PyInstaller main app"):
-            return False
-        
-        # Customize Info.plist with additional permissions
-        return self._customize_app_bundle(self.app_name)
+            
+            if not self._run_with_timeout(cmd, timeout=1200, description="PyInstaller main app"):
+                return False
+            
+            # Customize Info.plist with additional permissions (fallback only)
+            return self._customize_app_bundle(self.app_name)
     
     def _customize_app_bundle(self, app_name: str) -> bool:
         """Customize the .app bundle Info.plist created by PyInstaller"""
@@ -283,6 +414,25 @@ class SimpleMacBuilder:
             import plistlib
             with open(info_plist_path, 'rb') as f:
                 plist_data = plistlib.load(f)
+            
+            # CRITICAL: Ensure required bundle type keys are present (prevents "bundle format is ambiguous" error)
+            # These are required for macOS to recognize this as an application bundle
+            plist_data['CFBundlePackageType'] = 'APPL'  # Application bundle type
+            if 'CFBundleExecutable' not in plist_data:
+                # Find the main executable in MacOS directory
+                macos_dir = app_path / "Contents" / "MacOS"
+                if macos_dir.exists():
+                    executables = list(macos_dir.glob("*"))
+                    if executables:
+                        plist_data['CFBundleExecutable'] = executables[0].name
+                    else:
+                        plist_data['CFBundleExecutable'] = app_name
+                else:
+                    plist_data['CFBundleExecutable'] = app_name
+            
+            # Ensure CFBundleSignature is set (4-character code, typically '????' for generic)
+            if 'CFBundleSignature' not in plist_data:
+                plist_data['CFBundleSignature'] = '????'
             
             # Add/update required keys for functionality
             plist_data['CFBundleIdentifier'] = self.bundle_identifier
@@ -374,156 +524,7 @@ class SimpleMacBuilder:
     # Installer removed - using standard macOS drag-to-Applications approach
     
     
-    # Bundling step removed - main app goes directly in DMG
-    
-    def create_dmg(self) -> bool:
-        """Create DMG with main app (standard macOS distribution)"""
-        self._log_progress("Creating DMG", "DMG Creation")
-        
-        # Use main app directly (no installer wrapper)
-        main_app = self.dist_dir / f"{self.app_name}.app"
-        
-        if not main_app.exists():
-            self._log_progress("Main app not found", "ERROR")
-            return False
-        
-        # Create DMG contents
-        if self.dmg_dir.exists():
-            shutil.rmtree(self.dmg_dir)
-        self.dmg_dir.mkdir()
-        
-        # Copy main app to DMG
-        app_dst = self.dmg_dir / f"{self.app_name}.app"
-        shutil.copytree(main_app, app_dst)
-        
-        # Create Applications symlink
-        applications_link = self.dmg_dir / "Applications"
-        applications_link.symlink_to("/Applications")
-        
-        # Create README with comprehensive first-run instructions
-        readme_content = f"""Physiotherapy Clinic Assistant
-
-Version {self.version}
-
-INSTALLATION INSTRUCTIONS:
-1. Drag "PhysioClinicAssistant.app" to the Applications folder (or any location)
-2. Navigate to where you installed the app
-3. Right-click (or Control-click) on "PhysioClinicAssistant.app"
-4. Select "Open" from the menu
-5. Click "Open" in the security dialog that appears
-
-IMPORTANT - FIRST LAUNCH:
-The first time you open the app, macOS Gatekeeper will show a security warning.
-This is normal for apps downloaded from the internet.
-
-To open the app:
-→ Right-click on the app and select "Open" (DO NOT double-click on first launch)
-→ Click "Open" in the dialog that appears
-→ After the first successful launch, you can open the app normally
-
-If the app doesn't open or shows "damaged" error:
-1. Open Terminal (Applications > Utilities > Terminal)
-2. Type: xattr -cr /Applications/PhysioClinicAssistant.app
-3. Press Enter and try opening the app again
-
-FIRST RUN SETUP:
-On first launch, the app will:
-✓ Check system requirements
-✓ Download AI models (~4.3GB) - this is a one-time download
-✓ Configure your microphone
-✓ Set up secure authentication
-
-This initial setup may take 10-15 minutes depending on your internet connection.
-
-SYSTEM REQUIREMENTS:
-• macOS 10.15+ (Catalina or later)
-• 8GB RAM minimum (16GB recommended)
-• 10GB free disk space (plus 4.3GB for AI models)
-• Microphone access
-• Internet connection (for initial setup and model download)
-
-PERMISSIONS:
-The app will request permission to:
-• Access your microphone (for recording appointments)
-• Access files (for saving appointments and forms)
-
-These permissions are required for the app to function properly.
-
-TROUBLESHOOTING:
-- If the app crashes on launch, ensure you have enough disk space
-- If models fail to download, check your internet connection
-- If you see "App is damaged" error, use the Terminal command above
-- For persistent issues, try moving the app to /Applications folder
-
-For support and documentation:
-Email: support@physioclinic.com
-Website: https://physioclinic.com/support
-
-Thank you for using Physio Clinic Assistant!
-"""
-        
-        with open(self.dmg_dir / "README.txt", 'w') as f:
-            f.write(readme_content)
-        
-        # Flush filesystem buffers and wait (prevents "Resource busy" on GitHub Actions)
-        subprocess.run(["sync"], check=False)
-        time.sleep(2)
-        
-        # Detach any existing DMG mounts
-        subprocess.run(["hdiutil", "detach", "/Volumes/PhysioClinicAssistant"], 
-                      capture_output=True, check=False)
-        
-        # Create DMG using hdiutil (more reliable than create-dmg)
-        temp_dmg = "temp_installer.dmg"
-        
-        # Remove temp DMG if it exists
-        if Path(temp_dmg).exists():
-            Path(temp_dmg).unlink()
-        
-        # Create temporary DMG with retry logic (GitHub Actions can have filesystem delays)
-        max_retries = 3
-        for attempt in range(max_retries):
-            cmd = [
-                "hdiutil", "create", "-srcfolder", str(self.dmg_dir),
-                "-volname", "PhysioClinicAssistant",
-                "-fs", "HFS+",
-                "-ov",  # Overwrite if exists
-                temp_dmg
-            ]
-            
-            if self._run_with_timeout(cmd, timeout=300, description=f"Create temporary DMG (attempt {attempt + 1}/{max_retries})"):
-                break
-            
-            if attempt < max_retries - 1:
-                self._log_progress(f"Retrying after delay...", "WARNING")
-                time.sleep(5)
-            else:
-                return False
-        
-        # Convert to final compressed DMG
-        cmd = [
-            "hdiutil", "convert", temp_dmg,
-            "-format", "UDZO",
-            "-o", self.dmg_name
-        ]
-        
-        if not self._run_with_timeout(cmd, timeout=300, description="Compress DMG"):
-            return False
-        
-        # Clean up
-        if Path(temp_dmg).exists():
-            Path(temp_dmg).unlink()
-        shutil.rmtree(self.dmg_dir)
-        
-        # Verify DMG was created
-        if not Path(self.dmg_name).exists():
-            self._log_progress("DMG file not created", "ERROR")
-            return False
-        
-        dmg_size = Path(self.dmg_name).stat().st_size / (1024 * 1024)  # MB
-        self._log_progress(f"DMG created: {self.dmg_name} ({dmg_size:.1f} MB)")
-        
-        return True
+    # DMG creation moved to sign_and_notarize.py
     
     def cleanup(self) -> bool:
         """Clean up temporary files"""
@@ -534,463 +535,22 @@ Thank you for using Physio Clinic Assistant!
             if dir_path.exists():
                 shutil.rmtree(dir_path)
         
-        # Clean spec files
+        # Clean auto-generated spec files (but preserve our source-controlled spec file)
+        # PyInstaller may generate temporary spec files, but we want to keep PhysioClinicAssistant.spec
+        main_spec_file = Path('PhysioClinicAssistant.spec')
         for spec_file in Path('.').glob('*.spec'):
-            spec_file.unlink()
+            # Only delete if it's not our main source-controlled spec file
+            # Use resolve() to handle absolute vs relative path comparisons
+            if spec_file.resolve() != main_spec_file.resolve():
+                self._log_progress(f"Removing auto-generated spec file: {spec_file.name}")
+                spec_file.unlink()
         
-        # Clean up temporary icon files
-        icon_files = [
-            Path("static/logo.icns"),
-            Path("static/logo.iconset")
-        ]
-        for icon_file in icon_files:
-            if icon_file.exists():
-                if icon_file.is_dir():
-                    shutil.rmtree(icon_file)
-                else:
-                    icon_file.unlink()
+        # Clean up temporary icon files (but keep logo.icns if it exists - it's needed)
+        iconset_dir = Path("static/logo.iconset")
+        if iconset_dir.exists() and iconset_dir.is_dir():
+            shutil.rmtree(iconset_dir)
         
-        return True
-    
-    def sign_app(self, app_path: Path) -> bool:
-        """Sign the application with code signing certificate or ad-hoc signing"""
-        self._log_progress(f"Signing {app_path.name}", "Code Signing")
-        
-        # Check if entitlements file exists
-        entitlements_file = Path("entitlements.plist")
-        if not entitlements_file.exists():
-            self._log_progress("WARNING - entitlements.plist not found", "WARNING")
-        
-        # Use provided signing identity or ad-hoc signing (-)
-        # Ad-hoc signing (with -) allows the app to request permissions without a certificate
-        signing_identity = self.signing_identity if self.signing_identity else "-"
-        
-        if signing_identity == "-":
-            self._log_progress("Using ad-hoc code signing (allows permission dialogs)")
-        
-        # Remove quarantine attributes first
-        subprocess.run(["xattr", "-cr", str(app_path)], capture_output=True, check=False)
-        
-        runtime_options = ["--options", "runtime"] if signing_identity != "-" else []
-
-        # Sign all dylibs and frameworks first
-        for lib_pattern in ["*.dylib", "*.so"]:
-            libs = list(app_path.rglob(lib_pattern))
-            for lib in libs:
-                cmd = ["codesign", "--force", "--sign", signing_identity]
-                if runtime_options:
-                    cmd.extend(runtime_options)
-                cmd.append(str(lib))
-                subprocess.run(cmd, capture_output=True, check=False)
-        
-        # Sign the app bundle
-        cmd = [
-            "codesign", "--force", "--deep", "--sign", signing_identity,
-        ]
-        if runtime_options:
-            cmd.extend(runtime_options)
-        
-        # Add entitlements if available
-        if entitlements_file.exists():
-            cmd.extend(["--entitlements", str(entitlements_file)])
-            self._log_progress("Including entitlements.plist")
-        
-        cmd.append(str(app_path))
-        
-        if not self._run_with_timeout(cmd, timeout=300, description=f"Sign {app_path.name}"):
-            return False
-        
-        # Verify the signature (optional in CI, can be skipped with SKIP_CODESIGN_VERIFY=1)
-        skip_verify = os.getenv("SKIP_CODESIGN_VERIFY", "0") == "1"
-        if skip_verify:
-            self._log_progress("Skipping signature verification (SKIP_CODESIGN_VERIFY=1)")
-        else:
-            verify_cmd = ["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app_path)]
-            try:
-                subprocess.run(verify_cmd, check=True, timeout=300)
-                self._log_progress(f"Verification succeeded for {app_path.name}")
-            except subprocess.TimeoutExpired:
-                self._log_progress("WARNING - Verification timed out but continuing build", "WARNING")
-            except subprocess.CalledProcessError as exc:
-                self._log_progress(f"WARNING - Verification failed with exit code {exc.returncode}", "WARNING")
-        
-        self._log_progress(f"Successfully signed {app_path.name}")
-        return True
-    
-    def _check_notarization_status(self, submission_id: str) -> Tuple[str, Optional[bool]]:
-        """Check notarization status and return (status, success)
-        Returns: (status_string, is_success)
-        - success=True: Accepted
-        - success=False: Rejected/Invalid
-        - success=None: In Progress or unknown
-        Status can be: 'In Progress', 'Accepted', 'Rejected', 'Invalid', or error message
-        Uses history command which works immediately after submission.
-        """
-        using_api_key = all([self.notarization_key_id, self.notarization_issuer_id, self.notarization_key_path])
-        
-        try:
-            # Use history command first - it works immediately after submission
-            if using_api_key:
-                history_cmd = [
-                    "xcrun", "notarytool", "history",
-                    "--key", self.notarization_key_path,
-                    "--key-id", self.notarization_key_id,
-                    "--issuer", self.notarization_issuer_id,
-                    "--output-format", "json",
-                ]
-            else:
-                history_cmd = [
-                    "xcrun", "notarytool", "history",
-                    "--team-id", self.notarization_team_id,
-                    "--apple-id", self.notarization_username,
-                    "--password", self.notarization_password,
-                    "--output-format", "json",
-                ]
-            
-            history_result = subprocess.run(
-                history_cmd,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if history_result.returncode == 0:
-                try:
-                    raw_output = history_result.stdout.strip()
-                    if not raw_output:
-                        return ("Empty history response", None)
-                    
-                    parsed_json = json.loads(raw_output)
-                    
-                    # Handle different JSON response structures
-                    # Could be: list, dict with "history" key, or dict with other structure
-                    history_data = None
-                    
-                    if isinstance(parsed_json, list):
-                        history_data = parsed_json
-                    elif isinstance(parsed_json, dict):
-                        # Try common keys that might contain the list
-                        for key in ["history", "data", "submissions", "items"]:
-                            if key in parsed_json and isinstance(parsed_json[key], list):
-                                history_data = parsed_json[key]
-                                break
-                        
-                        # If still not found, check if dict values contain lists
-                        if history_data is None:
-                            for value in parsed_json.values():
-                                if isinstance(value, list):
-                                    history_data = value
-                                    break
-                        
-                        # Last resort: if dict itself might be the entry (unlikely but handle it)
-                        if history_data is None and "id" in parsed_json:
-                            history_data = [parsed_json]
-                    else:
-                        # Unexpected type
-                        return (f"Unexpected JSON type: {type(parsed_json).__name__}", None)
-                    
-                    # Find our submission in the history
-                    if history_data and isinstance(history_data, list):
-                        for entry in history_data:
-                            # Ensure entry is a dict before calling .get()
-                            if not isinstance(entry, dict):
-                                continue
-                            if entry.get("id") == submission_id:
-                                status = entry.get("status", "Unknown")
-                                if status == "Accepted":
-                                    return ("Accepted", True)
-                                elif status in ["Rejected", "Invalid"]:
-                                    return (status, False)
-                                else:
-                                    # In Progress, Pending, or other intermediate status
-                                    return (status, None)
-                    
-                    # Submission not found in history yet (shouldn't happen, but handle gracefully)
-                    return ("Not found in history (may be processing)", None)
-                except json.JSONDecodeError as e:
-                    # JSON parsing failed, try text format
-                    return ("JSON parse error, trying text format", None)
-                except (KeyError, TypeError, AttributeError) as e:
-                    # Structure error - log and try text format
-                    return (f"JSON structure error: {type(e).__name__}, trying text format", None)
-            
-            # Fallback: try parsing text format history
-            if using_api_key:
-                history_text_cmd = [
-                    "xcrun", "notarytool", "history",
-                    "--key", self.notarization_key_path,
-                    "--key-id", self.notarization_key_id,
-                    "--issuer", self.notarization_issuer_id,
-                ]
-            else:
-                history_text_cmd = [
-                    "xcrun", "notarytool", "history",
-                    "--team-id", self.notarization_team_id,
-                    "--apple-id", self.notarization_username,
-                    "--password", self.notarization_password,
-                ]
-            
-            history_text_result = subprocess.run(
-                history_text_cmd,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if history_text_result.returncode == 0:
-                # Parse text format: look for our submission ID and its status
-                lines = history_text_result.stdout.split('\n')
-                found_id = False
-                for i, line in enumerate(lines):
-                    if submission_id in line:
-                        found_id = True
-                        # Look for status in nearby lines
-                        for j in range(max(0, i-5), min(len(lines), i+5)):
-                            if 'status:' in lines[j].lower():
-                                status_line = lines[j].lower()
-                                if 'accepted' in status_line:
-                                    return ("Accepted", True)
-                                elif 'rejected' in status_line:
-                                    return ("Rejected", False)
-                                elif 'invalid' in status_line:
-                                    return ("Invalid", False)
-                                elif 'in progress' in status_line or 'pending' in status_line:
-                                    return ("In Progress", None)
-                        break
-                
-                if found_id:
-                    return ("In Progress", None)  # Found ID but couldn't parse status
-                else:
-                    return ("Not found in history", None)
-            
-            # If history command failed, return error
-            error_msg = history_result.stderr if history_result.returncode != 0 else "Unknown error"
-            return (f"Error checking history: {error_msg}", None)
-                
-        except subprocess.TimeoutExpired:
-            return ("Timeout checking status", None)
-        except Exception as e:
-            return (f"Exception checking status: {e}", None)
-    
-    def notarize_app(self, app_path: Path) -> bool:
-        """Notarize the application with Apple"""
-        using_api_key = all([self.notarization_key_id, self.notarization_issuer_id, self.notarization_key_path])
-        using_apple_id = all([self.notarization_team_id, self.notarization_username, self.notarization_password])
-
-        if not using_api_key and not using_apple_id:
-            self._log_progress("Notarization credentials not provided - skipping notarization", "WARNING")
-            return True
-        
-        self._log_progress(f"Notarizing {app_path.name}", "Notarization")
-        
-        # Create zip file for notarization
-        zip_path = app_path.with_suffix('.zip')
-        cmd = ["ditto", "-c", "-k", "--keepParent", str(app_path), str(zip_path)]
-        
-        if not self._run_with_timeout(cmd, timeout=300, description="Create zip for notarization"):
-            return False
-        
-        # Submit for notarization (without --wait to get submission ID immediately)
-        self._log_progress("Submitting for notarization", "Notarization")
-        if using_api_key:
-            submit_cmd = [
-                "xcrun", "notarytool", "submit", str(zip_path),
-                "--key", self.notarization_key_path,
-                "--key-id", self.notarization_key_id,
-                "--issuer", self.notarization_issuer_id,
-            ]
-        else:
-            submit_cmd = [
-                "xcrun", "notarytool", "submit", str(zip_path),
-                "--team-id", self.notarization_team_id,
-                "--apple-id", self.notarization_username,
-                "--password", self.notarization_password,
-            ]
-        
-        # Submit and capture submission ID
-        submission_id = None
-        try:
-            result = subprocess.run(
-                submit_cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=300  # 5 min timeout for submission
-            )
-            
-            # Parse submission ID from output (can be JSON or text format)
-            output = result.stdout.strip()
-            
-            # Try JSON format first
-            try:
-                submit_output = json.loads(output)
-                submission_id = submit_output.get("id")
-            except json.JSONDecodeError:
-                # Fall back to text parsing (format: "id: <uuid>")
-                for line in output.split('\n'):
-                    line = line.strip()
-                    if line.startswith('id:'):
-                        submission_id = line.split(':', 1)[1].strip()
-                        break
-            
-            if not submission_id:
-                self._log_progress("Failed to get submission ID from notarization response", "ERROR")
-                print(f"Output: {output}")
-                return False
-            
-            self._log_progress(f"Submitted for notarization (ID: {submission_id[:8]}...)")
-            
-        except subprocess.TimeoutExpired:
-            self._log_progress("Timeout submitting for notarization", "ERROR")
-            return False
-        except subprocess.CalledProcessError as e:
-            self._log_progress(f"Failed to submit for notarization: {e}", "ERROR")
-            if e.stderr:
-                print(f"Error: {e.stderr}")
-            if e.stdout:
-                print(f"Output: {e.stdout}")
-            return False
-        
-        # Wait for notarization with periodic status checks to catch rejections early
-        self._log_progress("Waiting for notarization to complete", "Notarization")
-        max_wait_time = 7200  # 2 hours total
-        check_interval = 30  # Check status every 30 seconds
-        start_time = time.time()
-        last_status_check = 0
-        
-        # Give Apple's servers a moment to process the submission
-        self._log_progress("Waiting for submission to appear in history...", "Notarization")
-        time.sleep(10)  # Wait 10 seconds before first check
-        
-        while time.time() - start_time < max_wait_time:
-            # Check status periodically to catch rejections early
-            elapsed = int(time.time() - start_time)
-            if time.time() - last_status_check >= check_interval:
-                status, success = self._check_notarization_status(submission_id)
-                last_status_check = time.time()
-                
-                if success is True:
-                    self._log_progress(f"Notarization accepted!")
-                    break
-                elif success is False:
-                    # Rejected or Invalid - get detailed log
-                    self._log_progress(f"Notarization {status.lower()}!", "ERROR")
-                    if using_api_key:
-                        log_cmd = [
-                            "xcrun", "notarytool", "log", submission_id,
-                            "--key", self.notarization_key_path,
-                            "--key-id", self.notarization_key_id,
-                            "--issuer", self.notarization_issuer_id,
-                        ]
-                    else:
-                        log_cmd = [
-                            "xcrun", "notarytool", "log", submission_id,
-                            "--team-id", self.notarization_team_id,
-                            "--apple-id", self.notarization_username,
-                            "--password", self.notarization_password,
-                        ]
-                    
-                    log_result = subprocess.run(log_cmd, capture_output=True, text=True, timeout=60)
-                    if log_result.returncode == 0:
-                        print("\n" + "="*80)
-                        print("NOTARIZATION REJECTION LOG:")
-                        print("="*80)
-                        print(log_result.stdout)
-                        print("="*80 + "\n")
-                    else:
-                        print(f"Could not fetch detailed log: {log_result.stderr}")
-                    
-                    return False
-                else:
-                    # Still in progress
-                    self._log_progress(f"Status: {status} ({elapsed}s elapsed)")
-            
-            # Sleep before next check
-            time.sleep(5)  # Check every 5 seconds, but only log every check_interval
-        
-        # Final status check
-        status, success = self._check_notarization_status(submission_id)
-        if success is not True:
-            elapsed_hours = int((time.time() - start_time) / 3600)
-            elapsed_mins = int(((time.time() - start_time) % 3600) / 60)
-            
-            if success is False:
-                # Rejected - get detailed log
-                self._log_progress(f"Notarization {status.lower()}!", "ERROR")
-                if using_api_key:
-                    log_cmd = [
-                        "xcrun", "notarytool", "log", submission_id,
-                        "--key", self.notarization_key_path,
-                        "--key-id", self.notarization_key_id,
-                        "--issuer", self.notarization_issuer_id,
-                    ]
-                else:
-                    log_cmd = [
-                        "xcrun", "notarytool", "log", submission_id,
-                        "--team-id", self.notarization_team_id,
-                        "--apple-id", self.notarization_username,
-                        "--password", self.notarization_password,
-                    ]
-                
-                log_result = subprocess.run(log_cmd, capture_output=True, text=True, timeout=60)
-                if log_result.returncode == 0:
-                    print("\n" + "="*80)
-                    print("NOTARIZATION REJECTION LOG:")
-                    print("="*80)
-                    print(log_result.stdout)
-                    print("="*80 + "\n")
-                else:
-                    print(f"Note: Detailed log not yet available. Check Apple Developer portal for submission ID: {submission_id}")
-            else:
-                # Still in progress - timeout reached
-                self._log_progress(
-                    f"Notarization timeout after {elapsed_hours}h {elapsed_mins}m. Status: {status}", 
-                    "WARNING"
-                )
-                print(f"\n⚠️  Notarization is still in progress after {elapsed_hours}h {elapsed_mins}m.")
-                print(f"   Submission ID: {submission_id}")
-                print(f"   This is normal - notarization can take 5-30 minutes, sometimes longer.")
-                print(f"   Check status manually: xcrun notarytool history --key <key> --key-id <id> --issuer <issuer>")
-                print(f"   Or check Apple Developer portal: https://developer.apple.com/account/resources/identifiers/list")
-                print(f"   The workflow will continue, but DMG may not be notarized yet.\n")
-                # Don't fail the build - allow it to continue and staple later if needed
-                return False
-            
-            return False
-        
-        # Staple the notarization
-        cmd = ["xcrun", "stapler", "staple", str(app_path)]
-        if not self._run_with_timeout(cmd, timeout=300, description="Staple notarization"):
-            return False
-        
-        # Clean up zip file
-        if zip_path.exists():
-            zip_path.unlink()
-        
-        self._log_progress(f"Successfully notarized {app_path.name}")
-        return True
-    
-    def sign_applications(self) -> bool:
-        """Sign main application"""
-        self._log_progress("Signing application", "Code Signing")
-        
-        # Sign main app only (no installer)
-        main_app_path = self.dist_dir / f"{self.app_name}.app"
-        if main_app_path.exists():
-            if not self.sign_app(main_app_path):
-                return False
-        
-        return True
-    
-    def notarize_applications(self) -> bool:
-        """Notarize main application"""
-        self._log_progress("Notarizing application", "Notarization")
-        
-        # Notarize main app only
-        main_app_path = self.dist_dir / f"{self.app_name}.app"
-        if main_app_path.exists():
-            if not self.notarize_app(main_app_path):
-                return False
+        # Note: We keep logo.icns as it may be needed for the build
         
         return True
     
@@ -1003,9 +563,6 @@ Thank you for using Physio Clinic Assistant!
             ("Prepare Dependencies", self.prepare_dependencies),
             ("Clean Build Directories", self.clean_build_dirs),
             ("Build Main Application", self.build_main_app),
-            ("Sign Application", self.sign_applications),
-            ("Notarize Application", self.notarize_applications),
-            ("Create DMG", self.create_dmg),
             ("Cleanup", self.cleanup),
         ]
         
@@ -1017,7 +574,22 @@ Thank you for using Physio Clinic Assistant!
         total_time = time.time() - self.start_time
         print("=" * 60)
         print(f"✅ Build completed successfully in {total_time:.1f}s")
-        print(f"📦 DMG file: {self.dmg_name}")
+        app_path = self.dist_dir / f"{self.app_name}.app"
+        if app_path.exists():
+            print(f"📦 Application: {app_path}")
+            print(f"   Next step: Run sign_and_notarize.py to sign and create DMG")
+        
+        # Log completion
+        if self.log_file:
+            try:
+                with open(self.log_file, 'a') as f:
+                    f.write(f"\n{'='*80}\n")
+                    f.write(f"Build completed successfully in {total_time:.1f}s\n")
+                    f.write(f"Application: {app_path}\n")
+                    f.write(f"{'='*80}\n")
+                print(f"📝 Build log saved to: {self.log_file}")
+            except Exception:
+                pass
         
         return True
 
