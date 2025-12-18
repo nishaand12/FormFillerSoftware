@@ -235,7 +235,28 @@ Extract transcript data and return ONLY the JSON object:"""
             print(f"Processing transcript for OCF-18: {transcript_path}")
             print(f"Transcript length: {len(transcript_text)} characters")
 
-            extracted = self._extract_with_model(transcript_text)
+            # Extract data using model with retry logic for empty results
+            max_retries = 2
+            extracted = {}
+            
+            for attempt in range(max_retries + 1):
+                if attempt > 0:
+                    print(f"Retrying OCF-18 extraction (attempt {attempt + 1}/{max_retries + 1})...")
+                
+                extracted = self._extract_with_model(transcript_text)
+                
+                # Check if we got actual extracted fields (excluding metadata)
+                # Metadata fields that will be added later
+                metadata_fields = {'appointment_id', 'extraction_timestamp', 'model_used', 'transcript_path'}
+                actual_fields = {k: v for k, v in extracted.items() if k not in metadata_fields}
+                
+                if actual_fields:
+                    print(f"Successfully extracted {len(actual_fields)} OCF-18 fields on attempt {attempt + 1}")
+                    break
+                elif attempt < max_retries:
+                    print(f"Warning: Empty OCF-18 extraction result on attempt {attempt + 1}, will retry...")
+                else:
+                    print(f"Warning: Empty OCF-18 extraction result after {max_retries + 1} attempts")
 
             # Add metadata
             extracted['appointment_id'] = appointment_id

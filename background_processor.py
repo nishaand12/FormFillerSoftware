@@ -471,7 +471,11 @@ class BackgroundProcessor:
             # Extract WSIB data using selected model
             extracted_data = self.extractor.extract_data(transcript_path, job.appointment_id, extraction_path)
             
-            if not extracted_data:
+            # Check for actual extracted fields (excluding metadata)
+            metadata_fields = {'appointment_id', 'extraction_timestamp', 'model_used', 'transcript_path'}
+            actual_fields = {k: v for k, v in extracted_data.items() if k not in metadata_fields}
+            
+            if not actual_fields:
                 raise Exception("No WSIB data extracted from transcript")
             
             # Add extraction to database
@@ -573,7 +577,12 @@ class BackgroundProcessor:
             extraction_path = os.path.join(appointment_folder, "ocf23_extraction.json")
 
             extracted_data = self.ocf23_extractor.extract_data(transcript_path, job.appointment_id, extraction_path)
-            if not extracted_data:
+            
+            # Check for actual extracted fields (excluding metadata)
+            metadata_fields = {'appointment_id', 'extraction_timestamp', 'model_used', 'transcript_path'}
+            actual_fields = {k: v for k, v in extracted_data.items() if k not in metadata_fields}
+            
+            if not actual_fields:
                 raise Exception("No OCF-23 data extracted from transcript")
 
             self.db_manager.add_file(
@@ -651,7 +660,12 @@ class BackgroundProcessor:
             extraction_path = os.path.join(appointment_folder, "ocf18_extraction.json")
 
             extracted_data = self.ocf18_extractor.extract_data(transcript_path, job.appointment_id, extraction_path)
-            if not extracted_data:
+            
+            # Check for actual extracted fields (excluding metadata)
+            metadata_fields = {'appointment_id', 'extraction_timestamp', 'model_used', 'transcript_path'}
+            actual_fields = {k: v for k, v in extracted_data.items() if k not in metadata_fields}
+            
+            if not actual_fields:
                 raise Exception("No OCF-18 data extracted from transcript")
 
             self.db_manager.add_file(

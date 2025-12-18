@@ -501,12 +501,14 @@ class PhysioApp:
         """Enable action buttons for selected appointment"""
         self.view_folder_btn.config(state="normal")
         self.view_transcript_btn.config(state="normal")
+        self.view_form_data_btn.config(state="normal")
         self.view_forms_btn.config(state="normal")
     
     def disable_action_buttons(self):
         """Disable action buttons when no appointment is selected"""
         self.view_folder_btn.config(state="disabled")
         self.view_transcript_btn.config(state="disabled")
+        self.view_form_data_btn.config(state="disabled")
         self.view_forms_btn.config(state="disabled")
     
     def view_selected_appointment_folder(self):
@@ -520,6 +522,16 @@ class PhysioApp:
         """View the selected appointment transcript"""
         if hasattr(self, 'selected_appointment_id') and self.selected_appointment_id:
             self.view_appointment_transcript(self.selected_appointment_id)
+        else:
+            messagebox.showwarning("Warning", "Please select an appointment first")
+    
+    def view_selected_appointment_form_data(self):
+        """View the selected appointment form data"""
+        if hasattr(self, 'selected_appointment_id') and self.selected_appointment_id:
+            if self.appointment_history_gui:
+                self.appointment_history_gui.view_form_data_for_appointment(self.selected_appointment_id)
+            else:
+                messagebox.showerror("Error", "Appointment History GUI is not available")
         else:
             messagebox.showwarning("Warning", "Please select an appointment first")
     
@@ -866,7 +878,7 @@ class PhysioApp:
         self.device_combo = ttk.Combobox(device_frame, textvariable=self.device_var, width=40, state="readonly")
         self.device_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
         
-        self.refresh_devices_button = ttk.Button(device_frame, text="Refresh", 
+        self.refresh_devices_button = ttk.Button(device_frame, text="Check Devices", 
                                                command=self.refresh_audio_devices)
         self.refresh_devices_button.grid(row=0, column=2)
         
@@ -952,12 +964,16 @@ class PhysioApp:
                                             command=self.view_selected_appointment_transcript, state="disabled")
         self.view_transcript_btn.pack(side=tk.LEFT, padx=(0, 10))
         
+        self.view_form_data_btn = ttk.Button(actions_frame, text="View Form Data", 
+                                            command=self.view_selected_appointment_form_data, state="disabled")
+        self.view_form_data_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
         self.view_forms_btn = ttk.Button(actions_frame, text="View Forms", 
                                        command=self.view_selected_appointment_forms, state="disabled")
         self.view_forms_btn.pack(side=tk.LEFT, padx=(0, 10))
         
         # Refresh button
-        ttk.Button(actions_frame, text="Refresh", command=self.load_today_appointments).pack(side=tk.RIGHT)
+        ttk.Button(actions_frame, text="Refresh Status", command=self.load_today_appointments).pack(side=tk.RIGHT)
         
         # Bind selection event
         self.today_tree.bind('<<TreeviewSelect>>', self.on_appointment_select)

@@ -191,7 +191,8 @@ Extract transcript data and return ONLY the JSON object:"""
             json_start = response_text.find('{')
             if json_start == -1:
                 # Try to find JSON-like content that might be missing the opening brace
-                if '"workers_first_name"' in response_text or '"workers_last_name"' in response_text:
+                # Check for actual WSIB field names that exist in the prompt
+                if '"date_of_assessment"' in response_text or '"return_to_work_capability"' in response_text:
                     print("Found JSON-like content without opening brace, attempting to fix...")
                     # Add opening brace and try to parse
                     json_str = "{" + response_text.strip()
@@ -283,7 +284,8 @@ Extract transcript data and return ONLY the JSON object:"""
             # Try to extract data from the error message itself (as a fallback)
             try:
                 error_str = str(e)
-                if '"workers_first_name"' in error_str or '"workers_last_name"' in error_str:
+                # Check for actual WSIB field names that exist in the prompt
+                if '"date_of_assessment"' in error_str or '"return_to_work_capability"' in error_str:
                     print("Attempting to extract data from error message...")
                     
                     # Extract key-value pairs using regex
@@ -317,8 +319,28 @@ Extract transcript data and return ONLY the JSON object:"""
             print(f"Processing transcript: {transcript_path}")
             print(f"Transcript length: {len(transcript_text)} characters")
             
-            # Extract data using model
-            extracted_data = self._extract_with_llama(transcript_text)
+            # Extract data using model with retry logic for empty results
+            max_retries = 2
+            extracted_data = {}
+            
+            for attempt in range(max_retries + 1):
+                if attempt > 0:
+                    print(f"Retrying extraction (attempt {attempt + 1}/{max_retries + 1})...")
+                
+                extracted_data = self._extract_with_llama(transcript_text)
+                
+                # Check if we got actual extracted fields (excluding metadata)
+                # Metadata fields that will be added later
+                metadata_fields = {'appointment_id', 'extraction_timestamp', 'model_used', 'transcript_path'}
+                actual_fields = {k: v for k, v in extracted_data.items() if k not in metadata_fields}
+                
+                if actual_fields:
+                    print(f"Successfully extracted {len(actual_fields)} fields on attempt {attempt + 1}")
+                    break
+                elif attempt < max_retries:
+                    print(f"Warning: Empty extraction result on attempt {attempt + 1}, will retry...")
+                else:
+                    print(f"Warning: Empty extraction result after {max_retries + 1} attempts")
             
             # Add metadata
             extracted_data['appointment_id'] = appointment_id

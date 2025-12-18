@@ -30,6 +30,7 @@ class EncryptionMigration:
         
         # Setup logging with rotation
         from logging.handlers import RotatingFileHandler
+        from app_paths import get_log_path
         
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -38,8 +39,10 @@ class EncryptionMigration:
         self.logger.handlers.clear()
         
         # File handler with rotation (10MB max, keep 5 backups)
+        # Use proper log path that creates directory if needed
+        log_file = str(get_log_path("encryption_migration.log"))
         file_handler = RotatingFileHandler(
-            'logs/encryption_migration.log',
+            log_file,
             maxBytes=10 * 1024 * 1024,  # 10MB
             backupCount=5
         )

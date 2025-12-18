@@ -170,10 +170,9 @@ class WSIBFormFiller:
     
     def _process_text_fields(self, form: PdfWrapper, extraction_data: Dict[str, Any], 
                            available_fields: Dict[str, Any]) -> int:
-        """Process text fields"""
+        """Process text fields - Fill individually (not batched) for ARM64 compatibility"""
         
         print("\n📝 Processing text fields...")
-        text_fields_to_fill = {}
         text_fields_processed = 0
         
         for field_name, field_value in extraction_data.items():
@@ -186,16 +185,15 @@ class WSIBFormFiller:
                     clean_field_name = pdf_field_name.strip('()')
                     
                     if clean_field_name in available_fields:
-                        text_fields_to_fill[clean_field_name] = str(field_value)
-                        print(f"  ✅ Text field: {field_name} -> {clean_field_name} = {field_value}")
+                        # Fill individually for ARM64 compatibility (like OCF-23)
+                        text_value = "" if field_value is None else str(field_value)
+                        form.fill({clean_field_name: text_value})
+                        print(f"  ✅ Text field: {field_name} -> {clean_field_name} = {text_value}")
                         text_fields_processed += 1
                     else:
                         print(f"  ⚠️  Text field {clean_field_name} not found in PDF")
         
-        # Fill the text fields
-        if text_fields_to_fill:
-            form.fill(text_fields_to_fill)
-            print(f"📝 Text fields filled: {text_fields_processed}")
+        print(f"📝 Text fields filled: {text_fields_processed}")
         
         return text_fields_processed
     
