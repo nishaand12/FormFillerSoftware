@@ -47,8 +47,12 @@ class AuditManager:
                 self.db_path = str(get_database_path())
             except ImportError:
                 import sys
+                import os
                 if sys.platform == 'darwin':
                     app_support = Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant"
+                    self.db_path = str(app_support / "data" / "clinic_data.db")
+                elif sys.platform == 'win32':
+                    app_support = Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant"
                     self.db_path = str(app_support / "data" / "clinic_data.db")
                 else:
                     self.db_path = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "data" / "clinic_data.db")

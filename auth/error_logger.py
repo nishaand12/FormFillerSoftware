@@ -20,9 +20,12 @@ except ImportError:
     # Fallback if app_paths not available
     def get_log_path(relative_path: str = "") -> Path:
         """Fallback function for getting log path"""
+        import os
         app_name = "PhysioClinicAssistant"
         if sys.platform == 'darwin':
             base_path = Path.home() / "Library" / "Logs" / app_name
+        elif sys.platform == 'win32':
+            base_path = Path(os.getenv('LOCALAPPDATA', Path.home())) / app_name / "Logs"
         else:
             base_path = Path.home() / ".local" / "share" / app_name / "logs"
         base_path.mkdir(parents=True, exist_ok=True)

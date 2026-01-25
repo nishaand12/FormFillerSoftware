@@ -82,8 +82,12 @@ class EncryptionManager:
                 self.key_storage_path = get_writable_path("data/encryption_keys.json")
             except ImportError:
                 import sys
+                import os
                 if sys.platform == 'darwin':
                     app_support = Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant"
+                    self.key_storage_path = app_support / "data" / "encryption_keys.json"
+                elif sys.platform == 'win32':
+                    app_support = Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant"
                     self.key_storage_path = app_support / "data" / "encryption_keys.json"
                 else:
                     self.key_storage_path = Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "data" / "encryption_keys.json"

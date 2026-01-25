@@ -23,9 +23,12 @@ except ImportError:
         return Path(__file__).parent / relative_path if relative_path else Path(__file__).parent
     
     def get_writable_path(relative_path: str = "") -> Path:
+        import os
         app_name = "PhysioClinicAssistant"
         if sys.platform == 'darwin':
             base_path = Path.home() / "Library" / "Application Support" / app_name
+        elif sys.platform == 'win32':
+            base_path = Path(os.getenv('APPDATA', Path.home())) / app_name
         else:
             base_path = Path.home() / ".local" / "share" / app_name
         base_path.mkdir(parents=True, exist_ok=True)

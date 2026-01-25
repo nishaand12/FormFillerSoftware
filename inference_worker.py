@@ -41,10 +41,13 @@ def _resolve_model_path(model_type: str) -> str:
             return str(get_writable_path("models/Qwen3-1.7B-Q8_0.gguf"))
         return str(get_writable_path("models/mistral-7b-instruct-v0.1.Q4_K_M.gguf"))
     except ImportError:
+        import os
         from pathlib import Path
 
         if sys.platform == "darwin":
             base_dir = Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models"
+        elif sys.platform == "win32":
+            base_dir = Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant" / "models"
         else:
             base_dir = Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "models"
 

@@ -27,7 +27,8 @@ wheels/
 
 # Build artifacts
 *.spec
-!PhysioClinicAssistant.spec  # Keep our main spec file
+!PhysioClinicAssistant.spec  # Keep our main macOS spec file
+!PhysioClinicAssistant_windows.spec  # Keep our Windows spec file
 *.dmg
 temp_*.dmg
 build/

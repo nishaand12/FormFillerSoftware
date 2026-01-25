@@ -19,11 +19,14 @@ class ModelDownloader:
             self.models_dir = str(get_writable_path("models"))
         except ImportError:
             import sys
+            import os
             from pathlib import Path
             if sys.platform == 'darwin':
                 self.models_dir = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models")
+            elif sys.platform == 'win32':
+                self.models_dir = str(Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant" / "models")
             else:
-                self.models_dir = "models"
+                self.models_dir = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "models")
         
         self.cache_dir = os.path.expanduser("~/.cache/huggingface")
         self.progress_callback = progress_callback

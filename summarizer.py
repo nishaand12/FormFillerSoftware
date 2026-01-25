@@ -24,9 +24,12 @@ class Summarizer:
                 model_path = str(get_writable_path("models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
             except ImportError:
                 import sys
+                import os
                 from pathlib import Path
                 if sys.platform == 'darwin':
                     model_path = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
+                elif sys.platform == 'win32':
+                    model_path = str(Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant" / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
                 else:
                     model_path = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
             

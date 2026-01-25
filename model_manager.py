@@ -113,9 +113,12 @@ class ModelManager:
             except ImportError:
                 # Fallback
                 import sys
+                import os
                 from pathlib import Path as PathLib
                 if sys.platform == 'darwin':
                     models_dir = PathLib.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models"
+                elif sys.platform == 'win32':
+                    models_dir = PathLib(os.getenv('APPDATA', PathLib.home())) / "PhysioClinicAssistant" / "models"
                 else:
                     models_dir = PathLib.home() / ".local" / "share" / "PhysioClinicAssistant" / "models"
                 

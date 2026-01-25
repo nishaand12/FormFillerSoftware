@@ -120,11 +120,14 @@ class BackgroundProcessor:
             log_file = str(get_log_path("background_processor.log"))
         except ImportError:
             import sys
+            import os
             from pathlib import Path
             if sys.platform == 'darwin':
                 log_file = str(Path.home() / "Library" / "Logs" / "PhysioClinicAssistant" / "background_processor.log")
+            elif sys.platform == 'win32':
+                log_file = str(Path(os.getenv('LOCALAPPDATA', Path.home())) / "PhysioClinicAssistant" / "Logs" / "background_processor.log")
             else:
-                log_file = "logs/background_processor.log"
+                log_file = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "logs" / "background_processor.log")
         
         file_handler = RotatingFileHandler(
             log_file,

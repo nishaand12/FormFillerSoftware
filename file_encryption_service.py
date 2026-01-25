@@ -141,12 +141,14 @@ class FileEncryptionService:
                     temp_dir = get_temp_path()
                 except ImportError:
                     import sys
+                    import tempfile
                     if sys.platform == 'darwin':
-                        temp_dir = Path(f"/tmp/PhysioClinicAssistant")
-                        temp_dir.mkdir(parents=True, exist_ok=True)
+                        temp_dir = Path("/tmp/PhysioClinicAssistant")
+                    elif sys.platform == 'win32':
+                        temp_dir = Path(tempfile.gettempdir()) / "PhysioClinicAssistant"
                     else:
-                        temp_dir = Path("temp")
-                        temp_dir.mkdir(exist_ok=True)
+                        temp_dir = Path("/tmp/PhysioClinicAssistant")
+                    temp_dir.mkdir(parents=True, exist_ok=True)
                 
                 temp_filename = f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{Path(encrypted_file_path).name}"
                 decrypted_path = temp_dir / temp_filename
@@ -268,10 +270,13 @@ class FileEncryptionService:
                     temp_dir = get_temp_path(f"appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
                 except ImportError:
                     import sys
+                    import tempfile
                     if sys.platform == 'darwin':
                         temp_base = Path(f"/tmp/PhysioClinicAssistant/appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                    elif sys.platform == 'win32':
+                        temp_base = Path(tempfile.gettempdir()) / "PhysioClinicAssistant" / f"appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                     else:
-                        temp_base = Path(f"temp/appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                        temp_base = Path(f"/tmp/PhysioClinicAssistant/appointment_{appointment_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
                     temp_base.mkdir(parents=True, exist_ok=True)
                     temp_dir = temp_base
                 results['temp_directory'] = str(temp_dir)
@@ -335,10 +340,13 @@ class FileEncryptionService:
                     temp_dir = get_temp_path()
                 except ImportError:
                     import sys
+                    import tempfile
                     if sys.platform == 'darwin':
-                        temp_dir = Path(f"/tmp/PhysioClinicAssistant")
+                        temp_dir = Path("/tmp/PhysioClinicAssistant")
+                    elif sys.platform == 'win32':
+                        temp_dir = Path(tempfile.gettempdir()) / "PhysioClinicAssistant"
                     else:
-                        temp_dir = Path("temp")
+                        temp_dir = Path("/tmp/PhysioClinicAssistant")
                 
                 if not temp_dir.exists():
                     return {'success': True, 'message': 'No temp directory found', 'cleaned_files': 0}

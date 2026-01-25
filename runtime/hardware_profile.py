@@ -29,6 +29,7 @@ class HardwareProfile:
     is_rosetta: bool
     os_version: str
     metal_available: bool
+    cuda_available: bool = False  # NVIDIA GPU support on Windows/Linux
 
 
 def _detect_psutil_cores(default: int = 2) -> tuple[int, int]:
@@ -45,14 +46,30 @@ def _detect_memory_gb() -> float:
         return round(psutil.virtual_memory().total / (1024**3), 2)
     try:
         import subprocess
-
-        output = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True)
-        return round(int(output.strip()) / (1024**3), 2)
+        import sys
+        
+        if sys.platform == 'darwin':
+            # macOS: use sysctl
+            output = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True)
+            return round(int(output.strip()) / (1024**3), 2)
+        elif sys.platform == 'win32':
+            # Windows: use wmic (fallback if psutil not available)
+            output = subprocess.check_output(
+                ["wmic", "computersystem", "get", "totalphysicalmemory"],
+                text=True
+            )
+            # Parse output - second line contains the value
+            lines = output.strip().split('\n')
+            if len(lines) >= 2:
+                mem_bytes = int(lines[1].strip())
+                return round(mem_bytes / (1024**3), 2)
+        return 0.0
     except Exception:
         return 0.0
 
 
 def _check_metal_available(is_apple_silicon: bool) -> bool:
+    """Check if Metal (macOS) GPU acceleration is available."""
     if not is_apple_silicon:
         return False
     try:
@@ -66,16 +83,59 @@ def _check_metal_available(is_apple_silicon: bool) -> bool:
     return False
 
 
+def _check_cuda_available() -> bool:
+    """Check if CUDA (NVIDIA GPU) acceleration is available on Windows/Linux."""
+    try:
+        import llama_cpp  # type: ignore
+        
+        # Check if llama-cpp-python was built with CUDA support
+        # This is typically indicated by the presence of certain symbols
+        if hasattr(llama_cpp, 'llama_backend_init'):
+            # Try to detect NVIDIA GPU via environment or cuda library
+            import subprocess
+            import sys
+            
+            if sys.platform == 'win32':
+                # On Windows, check for nvidia-smi
+                try:
+                    result = subprocess.run(
+                        ['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        return True
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    pass
+            return False
+    except Exception:
+        return False
+    return False
+
+
 @functools.lru_cache(maxsize=1)
 def get_hardware_profile() -> HardwareProfile:
+    import sys
+    
     architecture = platform.machine().lower()
     physical, logical = _detect_psutil_cores()
     memory_gb = _detect_memory_gb()
-    os_version = platform.mac_ver()[0] if platform.system() == "Darwin" else platform.version()
+    
+    # Get OS version based on platform
+    if platform.system() == "Darwin":
+        os_version = platform.mac_ver()[0]
+    elif platform.system() == "Windows":
+        os_version = platform.win32_ver()[0]
+    else:
+        os_version = platform.version()
 
-    is_apple_silicon = architecture in {"arm64", "aarch64"}
+    is_apple_silicon = architecture in {"arm64", "aarch64"} and platform.system() == "Darwin"
     is_rosetta = platform.system() == "Darwin" and architecture == "x86_64" and "arm64" in platform.platform()
     metal_available = _check_metal_available(is_apple_silicon)
+    
+    # Check for CUDA on Windows/Linux
+    cuda_available = False
+    if sys.platform in ('win32', 'linux'):
+        cuda_available = _check_cuda_available()
 
     return HardwareProfile(
         architecture=architecture,
@@ -86,6 +146,7 @@ def get_hardware_profile() -> HardwareProfile:
         is_rosetta=is_rosetta,
         os_version=os_version,
         metal_available=metal_available,
+        cuda_available=cuda_available,
     )
 
 
@@ -95,7 +156,9 @@ def recommended_model_type(preferred: str = "qwen3-4b") -> str:
     if profile.memory_gb and profile.memory_gb < 12:
         return "qwen3-1.7b"
 
-    if not profile.metal_available and profile.memory_gb and profile.memory_gb < 16:
+    # Check for GPU acceleration (Metal on macOS, CUDA on Windows/Linux)
+    has_gpu = profile.metal_available or profile.cuda_available
+    if not has_gpu and profile.memory_gb and profile.memory_gb < 16:
         return "qwen3-1.7b"
 
     return preferred
@@ -130,11 +193,19 @@ def get_llama_runtime_config(
 ) -> LlamaRuntimeConfig:
     profile = get_hardware_profile()
 
+    # Determine GPU acceleration settings
     if profile.is_apple_silicon and profile.metal_available:
+        # Apple Silicon with Metal - use all GPU layers
+        n_gpu_layers = -1
+        n_threads = max(2, profile.physical_cores)
+        n_ctx = 4096 if model_type == "qwen3-4b" else 3072
+    elif profile.cuda_available:
+        # NVIDIA GPU with CUDA - use all GPU layers
         n_gpu_layers = -1
         n_threads = max(2, profile.physical_cores)
         n_ctx = 4096 if model_type == "qwen3-4b" else 3072
     else:
+        # CPU-only mode
         n_gpu_layers = 0
         n_threads = min(max(2, profile.physical_cores), 6)
         n_ctx = 3072 if model_type == "qwen3-4b" else 2048

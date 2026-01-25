@@ -28,9 +28,12 @@ except ImportError:
     # Fallback if app_paths not available
     def get_database_path() -> Path:
         """Fallback function for getting database path"""
+        import os
         app_name = "PhysioClinicAssistant"
         if sys.platform == 'darwin':
             base_path = Path.home() / "Library" / "Application Support" / app_name
+        elif sys.platform == 'win32':
+            base_path = Path(os.getenv('APPDATA', Path.home())) / app_name
         else:
             base_path = Path.home() / ".local" / "share" / app_name
         base_path.mkdir(parents=True, exist_ok=True)
@@ -933,6 +936,8 @@ class DatabaseManager:
                     import sys
                     if sys.platform == 'darwin':
                         archive_dir = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "data" / "archived")
+                    elif sys.platform == 'win32':
+                        archive_dir = str(Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant" / "data" / "archived")
                     else:
                         archive_dir = str(Path.home() / ".local" / "share" / "PhysioClinicAssistant" / "data" / "archived")
                     os.makedirs(archive_dir, exist_ok=True)

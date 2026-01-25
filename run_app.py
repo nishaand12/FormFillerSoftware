@@ -35,12 +35,24 @@ if getattr(sys, '_MEIPASS', None):
 
 def get_log_path():
     """Get path for startup log file"""
-    # Try multiple locations for log file
-    possible_paths = [
-        Path.home() / "Library" / "Logs" / "PhysioClinicAssistant",
-        Path.home() / ".physioclinic",
-        Path("/tmp") / "physioclinic",
-    ]
+    import tempfile
+    
+    # Try multiple locations for log file based on platform
+    if sys.platform == 'win32':
+        # Windows paths
+        possible_paths = [
+            Path(os.getenv('LOCALAPPDATA', Path.home())) / "PhysioClinicAssistant" / "Logs",
+            Path(os.getenv('APPDATA', Path.home())) / "PhysioClinicAssistant" / "Logs",
+            Path.home() / ".physioclinic",
+            Path(tempfile.gettempdir()) / "physioclinic",
+        ]
+    else:
+        # macOS/Linux paths
+        possible_paths = [
+            Path.home() / "Library" / "Logs" / "PhysioClinicAssistant",
+            Path.home() / ".physioclinic",
+            Path("/tmp") / "physioclinic",
+        ]
     
     for log_dir in possible_paths:
         try:
@@ -54,7 +66,7 @@ def get_log_path():
             continue
     
     # Fallback to temp file
-    return Path("/tmp") / "physioclinic_startup.log"
+    return Path(tempfile.gettempdir()) / "physioclinic_startup.log"
 
 
 def log_startup(message, is_error=False):
@@ -218,10 +230,17 @@ def main():
     """Main entry point with proper cleanup and error handling"""
     
     # Redirect stdout/stderr to log files for GUI app
-    # This is CRITICAL for pvrecorder to work when launched from Finder
+    # This is CRITICAL for pvrecorder to work when launched from Finder (macOS) or Start Menu (Windows)
     if not sys.stdout.isatty():
         try:
-            log_dir = Path.home() / "Library" / "Logs" / "PhysioClinicAssistant"
+            import tempfile
+            
+            # Get appropriate log directory based on platform
+            if sys.platform == 'win32':
+                log_dir = Path(os.getenv('LOCALAPPDATA', Path.home())) / "PhysioClinicAssistant" / "Logs"
+            else:
+                log_dir = Path.home() / "Library" / "Logs" / "PhysioClinicAssistant"
+            
             log_dir.mkdir(parents=True, exist_ok=True)
             
             stdout_log = log_dir / "app_output.log"
@@ -251,7 +270,8 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Set multiprocessing start method to prevent issues
-    if sys.platform == 'darwin':
+    # Windows defaults to 'spawn', macOS defaults to 'fork' which can cause issues
+    if sys.platform in ('darwin', 'win32'):
         try:
             multiprocessing.set_start_method('spawn', force=True)
             log_startup("✓ Set multiprocessing start method to 'spawn'")

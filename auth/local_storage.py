@@ -23,9 +23,12 @@ except ImportError:
     # Fallback if app_paths not available
     def get_cache_path(relative_path: str = "") -> Path:
         """Fallback function for getting cache path"""
+        import os
         app_name = "PhysioClinicAssistant"
         if sys.platform == 'darwin':
             base_path = Path.home() / "Library" / "Caches" / app_name
+        elif sys.platform == 'win32':
+            base_path = Path(os.getenv('LOCALAPPDATA', Path.home())) / app_name / "Cache"
         else:
             base_path = Path.home() / ".cache" / app_name
         base_path.mkdir(parents=True, exist_ok=True)

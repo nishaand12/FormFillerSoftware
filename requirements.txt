@@ -1,3 +1,6 @@
+# Cross-platform dependencies for PhysioClinicAssistant
+# Note: Some packages are platform-specific (see comments below)
+
 altgraph==0.17.4
 annotated-types==0.7.0
 anyio==4.10.0
@@ -26,8 +29,13 @@ humanfriendly==10.0
 hyperframe==6.1.0
 idna==3.10
 Jinja2==3.1.6
+
+# llama-cpp-python: For Windows with CUDA, see WINDOWS_BUILD.md for GPU installation
 llama_cpp_python==0.3.16
-macholib==1.16.3
+
+# macholib is macOS-specific (PyInstaller dependency)
+macholib==1.16.3; sys_platform == 'darwin'
+
 MarkupSafe==3.0.2
 mpmath==1.3.0
 networkx==3.5

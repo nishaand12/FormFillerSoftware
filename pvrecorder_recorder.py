@@ -36,13 +36,15 @@ class PvRecorderAudioRecorder:
             temp_dir = str(get_temp_path())
         except ImportError:
             import sys
+            import tempfile
             from pathlib import Path
             if sys.platform == 'darwin':
-                temp_dir = f"/tmp/PhysioClinicAssistant"
-                Path(temp_dir).mkdir(parents=True, exist_ok=True)
+                temp_dir = "/tmp/PhysioClinicAssistant"
+            elif sys.platform == 'win32':
+                temp_dir = str(Path(tempfile.gettempdir()) / "PhysioClinicAssistant")
             else:
-                temp_dir = "temp"
-                os.makedirs(temp_dir, exist_ok=True)
+                temp_dir = "/tmp/PhysioClinicAssistant"
+            Path(temp_dir).mkdir(parents=True, exist_ok=True)
         
         self.output_path = os.path.join(temp_dir, f"{appointment_id}.wav")
         
