@@ -5,6 +5,7 @@ Uses Qwen for fast, efficient data extraction
 """
 
 import os
+import sys
 import json
 import re
 from datetime import datetime
@@ -31,7 +32,6 @@ class OCF23DataExtractor:
                 checkbox_path = get_resource_path("config/ocf23_checkbox_groups_simplified.json")
             except ImportError:
                 # Fallback for development
-                import sys
                 if getattr(sys, '_MEIPASS', None):
                     from pathlib import Path
                     field_map_path = Path(sys._MEIPASS) / "config/field_map_ocf23_simplified.json"

@@ -5,6 +5,7 @@ Handles multiple recordings in parallel using a queue system
 """
 
 import os
+import sys
 import time
 import threading
 import queue
@@ -119,8 +120,6 @@ class BackgroundProcessor:
             from app_paths import get_log_path
             log_file = str(get_log_path("background_processor.log"))
         except ImportError:
-            import sys
-            import os
             from pathlib import Path
             if sys.platform == 'darwin':
                 log_file = str(Path.home() / "Library" / "Logs" / "PhysioClinicAssistant" / "background_processor.log")
@@ -518,7 +517,6 @@ class BackgroundProcessor:
                     from app_paths import get_resource_path
                     wsib_template = str(get_resource_path("forms/templates/wsib_faf_template.pdf"))
                 except ImportError:
-                    import sys
                     if getattr(sys, '_MEIPASS', None):
                         from pathlib import Path
                         wsib_template = str(Path(sys._MEIPASS) / "forms/templates/wsib_faf_template.pdf")
@@ -615,7 +613,6 @@ class BackgroundProcessor:
                 from app_paths import get_resource_path
                 ocf23_template = str(get_resource_path("forms/templates/fsra_ocf23_template.pdf"))
             except ImportError:
-                import sys
                 if getattr(sys, '_MEIPASS', None):
                     from pathlib import Path
                     ocf23_template = str(Path(sys._MEIPASS) / "forms/templates/fsra_ocf23_template.pdf")
@@ -698,7 +695,6 @@ class BackgroundProcessor:
                 from app_paths import get_resource_path
                 ocf18_template = str(get_resource_path("forms/templates/fsra_ocf18_template.pdf"))
             except ImportError:
-                import sys
                 if getattr(sys, '_MEIPASS', None):
                     from pathlib import Path
                     ocf18_template = str(Path(sys._MEIPASS) / "forms/templates/fsra_ocf18_template.pdf")

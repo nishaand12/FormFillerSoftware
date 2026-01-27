@@ -6,6 +6,7 @@ Focuses on Parts 6-9: Injury descriptions, prior conditions, activity limitation
 """
 
 import os
+import sys
 import json
 import re
 from datetime import datetime
@@ -32,7 +33,6 @@ class OCF18DataExtractor:
                 field_types_path = get_resource_path("config/ocf18_field_types.json")
             except ImportError:
                 # Fallback for development
-                import sys
                 if getattr(sys, '_MEIPASS', None):
                     from pathlib import Path
                     field_map_path = Path(sys._MEIPASS) / "config/field_map_ocf18.json"

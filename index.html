@@ -54,16 +54,35 @@
             text-align: center;
         }
         
+        .platform-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        
+        .platform-section h3 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .platform-icon {
+            font-size: 1.5rem;
+        }
+        
         .download-btn {
             display: inline-block;
             background: #007AFF;
             color: white;
-            padding: 20px 40px;
+            padding: 18px 35px;
             border-radius: 50px;
             text-decoration: none;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
-            margin: 20px 10px;
+            margin: 10px;
             transition: all 0.3s ease;
             box-shadow: 0 10px 20px rgba(0,122,255,0.3);
         }
@@ -79,6 +98,10 @@
         
         .download-btn.mac-intel {
             background: #5856d6;
+        }
+        
+        .download-btn.windows {
+            background: #0078d4;
         }
         
         .version-info {
@@ -133,7 +156,7 @@
         }
         
         .requirements li:before {
-            content: "✓";
+            content: "\2713";
             position: absolute;
             left: 0;
             color: #28a745;
@@ -157,10 +180,149 @@
             margin-left: 10px;
         }
         
+        .status-badge.beta {
+            background: #fd7e14;
+        }
+        
         .file-size {
             color: #666;
             font-size: 0.9rem;
             margin-top: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .tab-btn {
+            padding: 12px 25px;
+            border: 2px solid #007AFF;
+            background: white;
+            color: #007AFF;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover {
+            background: #f0f7ff;
+        }
+        
+        .tab-btn.active {
+            background: #007AFF;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', Consolas, monospace;
+            overflow-x: auto;
+            font-size: 0.95rem;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .warning-box h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .info-box h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .danger-box {
+            background: #ffebee;
+            border: 1px solid #ef9a9a;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .danger-box h4 {
+            color: #c62828;
+            margin-bottom: 10px;
+        }
+        
+        .success-box {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .success-box h4 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+        
+        .method-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        .method-card h4 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        
+        h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        h3 {
+            margin: 20px 0 15px 0;
+            color: #495057;
+        }
+        
+        ol, ul {
+            padding-left: 25px;
+            line-height: 2;
+        }
+        
+        .data-path {
+            background: #f1f3f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 0.9rem;
         }
         
         @media (max-width: 768px) {
@@ -176,6 +338,14 @@
                 display: block;
                 margin: 10px 0;
             }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab-btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -186,139 +356,407 @@
             <p>Professional AI-powered appointment recording and form automation</p>
         </div>
         
+        <!-- Download Section -->
         <div class="card download-section">
             <h2>Download Latest Version</h2>
             <div class="version-info">
-                <strong>Version 2.0.0</strong> <span class="status-badge">Latest</span>
-                <div class="file-size">macOS Installer: 39 MB</div>
+                <strong>Version 2.3.0</strong> <span class="status-badge beta">Beta</span>
+                <div class="file-size">AI Models downloaded separately on first run (~4.3GB)</div>
             </div>
             
-            <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v2.3.0/PhysioClinicAssistant-2.3.1-macOS-arm64.dmg" class="download-btn mac">
-                 Apple Silicon (post-2020)
-            </a>
+            <!-- Windows Downloads -->
+            <div class="platform-section">
+                <h3><span class="platform-icon">&#x1F5A5;</span> Windows</h3>
+                <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v2.3.0/PhysioClinicAssistant-2.3.0-Windows-Portable.zip" class="download-btn windows">
+                    Windows 10/11 (64-bit)
+                </a>
+                <div class="file-size">Portable ZIP - Extract and Run</div>
+            </div>
             
-            <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v2.2.0/PhysioClinicAssistant-2.1.0-macOS-Intel-x86_64.dmg" class="download-btn mac-intel">
-                 Intel x64 (pre-2020)
-            </a>
+            <!-- macOS Downloads -->
+            <div class="platform-section">
+                <h3><span class="platform-icon">&#x1F34E;</span> macOS</h3>
+                <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v2.3.0/PhysioClinicAssistant-2.3.1-macOS-arm64.dmg" class="download-btn mac">
+                    Apple Silicon (M1/M2/M3/M4)
+                </a>
+                <a href="https://github.com/nishaand12/FormFillerSoftware/releases/download/v2.2.0/PhysioClinicAssistant-2.1.0-macOS-Intel-x86_64.dmg" class="download-btn mac-intel">
+                    Intel (pre-2020 Macs)
+                </a>
+            </div>
         </div>
         
+        <!-- Features -->
         <div class="card">
-            <h2>🚀 Key Features</h2>
+            <h2>Key Features</h2>
             <div class="features">
                 <div class="feature">
-                    <h3>🎤 Smart Recording</h3>
+                    <h3>Smart Recording</h3>
                     <p>High-quality audio recording with automatic transcription using Whisper AI</p>
                 </div>
                 <div class="feature">
-                    <h3>📝 Auto Form Filling</h3>
+                    <h3>Auto Form Filling</h3>
                     <p>Automatically fill WSIB, OCF-18, and OCF-23 forms with extracted data</p>
                 </div>
                 <div class="feature">
-                    <h3>🔒 Enterprise Security</h3>
+                    <h3>Enterprise Security</h3>
                     <p>AES-256 encryption, audit trails, and secure authentication</p>
                 </div>
                 <div class="feature">
-                    <h3>🤖 AI-Powered</h3>
-                    <p>Advanced data extraction using state of the art Qwen models for high accuracy</p>
+                    <h3>AI-Powered</h3>
+                    <p>Advanced data extraction using state-of-the-art Qwen models for high accuracy</p>
                 </div>
                 <div class="feature">
-                    <h3>📊 Access Transcripts</h3>
+                    <h3>Access Transcripts</h3>
                     <p>Review appointment transcripts to never miss a detail</p>
                 </div>
                 <div class="feature">
-                    <h3>⚡ Offline Ready</h3>
+                    <h3>Offline Ready</h3>
                     <p>Works offline after initial setup and model download</p>
                 </div>
             </div>
         </div>
         
+        <!-- System Requirements -->
         <div class="card">
-            <div class="requirements">
-                <h3>📋 System Requirements</h3>
-                <ul>
-                    <li>macOS 10.15 (Catalina) or later</li>
-                    <li>8GB RAM minimum (16GB recommended)</li>
-                    <li>10GB free disk space (incl. 4.3GB for AI models)</li>
-                    <li>Microphone access (Bluetooth compatible)</li>
-                    <li>Internet connection (for initial setup and model download)</li>
-                </ul>
+            <h2>System Requirements</h2>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('req-windows')">Windows</button>
+                <button class="tab-btn" onclick="showTab('req-macos')">macOS</button>
+            </div>
+            
+            <div id="req-windows" class="tab-content active">
+                <div class="requirements">
+                    <h3>Windows Requirements</h3>
+                    <ul>
+                        <li>Windows 10 or Windows 11 (64-bit)</li>
+                        <li>8GB RAM minimum (16GB recommended)</li>
+                        <li>10GB free disk space (including 4.3GB for AI models)</li>
+                        <li>Microphone for recording</li>
+                        <li>Internet connection (for initial setup and model download)</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="req-macos" class="tab-content">
+                <div class="requirements">
+                    <h3>macOS Requirements</h3>
+                    <ul>
+                        <li>macOS 10.15 (Catalina) or later</li>
+                        <li>8GB RAM minimum (16GB recommended)</li>
+                        <li>10GB free disk space (including 4.3GB for AI models)</li>
+                        <li>Microphone access (Bluetooth compatible)</li>
+                        <li>Internet connection (for initial setup and model download)</li>
+                    </ul>
+                </div>
             </div>
         </div>
         
+        <!-- Installation Instructions -->
         <div class="card">
-            <h2>📖 Installation Instructions</h2>
-            <ol style="padding-left: 20px; line-height: 1.8;">
-                <li><strong>Download</strong> the macOS installer (.dmg file)</li>
-                <li><strong>Double-click</strong> the downloaded file to mount the disk image</li>
-                <li><strong>Drag</strong> the PhysioClinic Assistant Installer to your Applications folder</li>
-                <li><strong>Run</strong> the installer from Applications</li>
-                <li><strong>Follow</strong> the setup wizard to configure your system</li>
-                <li><strong>Wait</strong> for AI models to download on first run (~4.3GB)</li>
-            </ol>
+            <h2>Installation Instructions</h2>
             
-            <div style="background: #e3f2fd; border-radius: 10px; padding: 20px; margin-top: 20px;">
-                <h4 style="color: #1976d2; margin-bottom: 10px;">💡 First Run Note</h4>
-                <p>The app will automatically download AI models (~4.3GB) on first launch. This ensures you always have the latest models and keeps the installer small. Make sure you have a stable internet connection for the initial setup.</p>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>⚠️ Test Build Installation Note</h2>
-            <div style="background: #fff3cd; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-                <p><strong>Important:</strong> This is a test build (not yet Apple-signed). After downloading, you may see a "damaged" error. Don't worry - the file is fine! Just follow these steps:</p>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('install-windows')">Windows</button>
+                <button class="tab-btn" onclick="showTab('install-macos')">macOS</button>
             </div>
             
-            <h3>Quick Fix (Copy & Paste into Terminal)</h3>
-            <p>Open Terminal (Applications → Utilities → Terminal) and paste:</p>
-            <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
-                xattr -cr ~/Downloads/PhysioClinicAssistant-*.dmg
-            </div>
-            
-            <p>Press Enter. Now open the DMG file normally!</p>
-            <p>Once you have dragged the application to your applications folder, enter the below code in the terminal.</p>
-            <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: 'Courier New', monospace;">
-                xattr -cr /Applications/PhysioClinicAssistant.app
-            </div>
-            <p>Press Enter. Now right-click the application and click on Open!</p>
-            <h3 style="margin-top: 20px;">Why This Happens</h3>
-            <p>macOS blocks unsigned apps downloaded from the internet. The command above removes the security flag. This is safe - just make sure you trust the source! Production builds will be signed by Apple and won't need this.</p>
-            
-            <h3 style="margin-top: 20px;">Alternative Methods</h3>
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-top: 10px;">
-                <h4 style="margin-bottom: 10px;">Right-Click Method</h4>
-                <ol style="padding-left: 20px; line-height: 1.8;">
-                    <li>Right-click the DMG file</li>
-                    <li>Click "Open"</li>
-                    <li>Click "Open" again in the dialog</li>
+            <!-- Windows Installation -->
+            <div id="install-windows" class="tab-content active">
+                <h3>Windows Installation Steps</h3>
+                <ol>
+                    <li><strong>Download</strong> the Windows Portable ZIP file</li>
+                    <li><strong>Extract</strong> the ZIP file to a location like:
+                        <ul>
+                            <li><span class="data-path">C:\Program Files\PhysioClinicAssistant\</span></li>
+                            <li>Or your Desktop or Documents folder</li>
+                        </ul>
+                    </li>
+                    <li><strong>Open</strong> the extracted folder</li>
+                    <li><strong>Double-click</strong> <span class="data-path">PhysioClinicAssistant.exe</span> to run</li>
+                    <li><strong>Log in</strong> with your account credentials</li>
+                    <li><strong>Wait</strong> for AI models to download on first run (~4.3GB, 10-15 minutes)</li>
                 </ol>
-                <p style="margin-top: 10px;"><em>If you still see "damaged", use the Terminal command instead.</em></p>
+                
+                <div class="info-box">
+                    <h4>First Run Note</h4>
+                    <p>The app will automatically download AI models (~4.3GB) on first launch. This ensures you always have the latest models and keeps the download small. Make sure you have a stable internet connection for the initial setup.</p>
+                </div>
             </div>
             
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-top: 15px;">
-                <h4 style="margin-bottom: 10px;">No Terminal Needed</h4>
-                <p>To avoid this entirely, transfer the file via:</p>
-                <ul style="padding-left: 20px; margin-top: 10px;">
-                    <li>AirDrop (Mac to Mac)</li>
-                    <li>USB drive</li>
-                    <li>Local network sharing</li>
-                </ul>
-                <p style="margin-top: 10px;">Files transferred these ways don't get the security flag!</p>
+            <!-- macOS Installation -->
+            <div id="install-macos" class="tab-content">
+                <h3>macOS Installation Steps</h3>
+                <ol>
+                    <li><strong>Download</strong> the macOS installer (.dmg file)</li>
+                    <li><strong>Double-click</strong> the downloaded file to mount the disk image</li>
+                    <li><strong>Drag</strong> the PhysioClinic Assistant to your Applications folder</li>
+                    <li><strong>Run</strong> the app from Applications</li>
+                    <li><strong>Follow</strong> the setup wizard to configure your system</li>
+                    <li><strong>Wait</strong> for AI models to download on first run (~4.3GB)</li>
+                </ol>
+                
+                <div class="info-box">
+                    <h4>First Run Note</h4>
+                    <p>The app will automatically download AI models (~4.3GB) on first launch. This ensures you always have the latest models and keeps the installer small. Make sure you have a stable internet connection for the initial setup.</p>
+                </div>
             </div>
         </div>
         
+        <!-- Security Bypass Instructions (Beta Build) -->
         <div class="card">
-            <h2>🆘 Support & Documentation</h2>
+            <h2>Beta Build Security Bypass</h2>
+            <div class="warning-box">
+                <h4>Important: Beta Release Notice</h4>
+                <p>This is a beta release that is <strong>not yet code-signed</strong>. Your operating system will show security warnings because the app isn't signed with an approved certificate. This is normal for beta software and does <strong>NOT</strong> mean the software is malicious.</p>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('bypass-windows')">Windows SmartScreen</button>
+                <button class="tab-btn" onclick="showTab('bypass-macos')">macOS Gatekeeper</button>
+            </div>
+            
+            <!-- Windows SmartScreen Bypass -->
+            <div id="bypass-windows" class="tab-content active">
+                <h3>Bypassing Windows SmartScreen</h3>
+                <p>When you first run the app, Windows SmartScreen may block it with a message like "Windows protected your PC".</p>
+                
+                <div class="method-card">
+                    <h4>Method 1: Click "More info" (Easiest)</h4>
+                    <ol>
+                        <li>When you see "Windows protected your PC", click <strong>"More info"</strong></li>
+                        <li>Click <strong>"Run anyway"</strong></li>
+                        <li>The app will now run normally</li>
+                    </ol>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Method 2: Unblock the ZIP File (Before Extracting)</h4>
+                    <ol>
+                        <li>Right-click the downloaded ZIP file</li>
+                        <li>Click <strong>Properties</strong></li>
+                        <li>At the bottom, check the box next to <strong>"Unblock"</strong></li>
+                        <li>Click <strong>OK</strong></li>
+                        <li>Now extract and run the app normally</li>
+                    </ol>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Method 3: PowerShell Command (Advanced)</h4>
+                    <p>Open PowerShell as Administrator and run:</p>
+                    <div class="code-block"># Navigate to where you extracted the app
+cd "C:\Path\To\PhysioClinicAssistant"
+
+# Unblock all files recursively
+Get-ChildItem -Recurse | Unblock-File</div>
+                </div>
+                
+                <div class="info-box">
+                    <h4>Why This Happens</h4>
+                    <p>Windows SmartScreen blocks applications that don't have a code signing certificate from a trusted Certificate Authority. Code signing certificates cost $200-500/year. Once we obtain a certificate for the production release, these warnings will no longer appear.</p>
+                </div>
+            </div>
+            
+            <!-- macOS Gatekeeper Bypass -->
+            <div id="bypass-macos" class="tab-content">
+                <h3>Bypassing macOS Gatekeeper</h3>
+                <p>After downloading, you may see a "damaged" error or "cannot be opened because the developer cannot be verified". The file is fine!</p>
+                
+                <div class="method-card">
+                    <h4>Method 1: Terminal Command (Recommended)</h4>
+                    <p>Open Terminal (Applications -> Utilities -> Terminal) and paste:</p>
+                    <div class="code-block">xattr -cr ~/Downloads/PhysioClinicAssistant-*.dmg</div>
+                    <p>Press Enter. Now open the DMG file normally!</p>
+                    <p style="margin-top: 15px;">After dragging the app to Applications, also run:</p>
+                    <div class="code-block">xattr -cr /Applications/PhysioClinicAssistant.app</div>
+                    <p>Then right-click the application and click <strong>Open</strong>.</p>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Method 2: Right-Click Method</h4>
+                    <ol>
+                        <li>Right-click the DMG file (or the app after installation)</li>
+                        <li>Click <strong>"Open"</strong></li>
+                        <li>Click <strong>"Open"</strong> again in the dialog</li>
+                    </ol>
+                    <p><em>If you still see "damaged", use the Terminal command instead.</em></p>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Method 3: Transfer Without Quarantine</h4>
+                    <p>To avoid this entirely, transfer the file via:</p>
+                    <ul>
+                        <li>AirDrop (Mac to Mac)</li>
+                        <li>USB drive</li>
+                        <li>Local network sharing</li>
+                    </ul>
+                    <p>Files transferred these ways don't get the quarantine flag!</p>
+                </div>
+                
+                <div class="info-box">
+                    <h4>Why This Happens</h4>
+                    <p>macOS Gatekeeper blocks unsigned apps downloaded from the internet. The <code>xattr</code> command removes the quarantine flag. This is safe - just make sure you trust the source! Production builds will be signed by Apple and won't need this.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Uninstall & Data Cleaning -->
+        <div class="card">
+            <h2>Uninstall & Data Cleaning</h2>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('uninstall-windows')">Windows</button>
+                <button class="tab-btn" onclick="showTab('uninstall-macos')">macOS</button>
+            </div>
+            
+            <!-- Windows Uninstall -->
+            <div id="uninstall-windows" class="tab-content active">
+                <h3>Uninstalling on Windows</h3>
+                
+                <div class="method-card">
+                    <h4>Step 1: Remove the Application</h4>
+                    <p>Since this is a portable app, simply delete the folder where you extracted it:</p>
+                    <ul>
+                        <li>Navigate to where you extracted <span class="data-path">PhysioClinicAssistant</span></li>
+                        <li>Delete the entire folder</li>
+                    </ul>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Step 2: Remove Application Data (Optional)</h4>
+                    <p>To remove all saved data, settings, and downloaded models:</p>
+                    <ol>
+                        <li>Press <strong>Win + R</strong> to open Run dialog</li>
+                        <li>Type <span class="data-path">%APPDATA%</span> and press Enter</li>
+                        <li>Delete the folder: <span class="data-path">PhysioClinicAssistant</span></li>
+                        <li>Press <strong>Win + R</strong> again</li>
+                        <li>Type <span class="data-path">%LOCALAPPDATA%</span> and press Enter</li>
+                        <li>Delete the folder: <span class="data-path">PhysioClinicAssistant</span> (if present)</li>
+                    </ol>
+                </div>
+                
+                <div class="danger-box">
+                    <h4>Warning: Data Locations</h4>
+                    <p>The following data will be removed when cleaning:</p>
+                    <ul>
+                        <li><span class="data-path">%APPDATA%\PhysioClinicAssistant\</span> - Settings, database, AI models (~4.3GB)</li>
+                        <li><span class="data-path">%LOCALAPPDATA%\PhysioClinicAssistant\</span> - Logs and cache</li>
+                    </ul>
+                    <p><strong>This includes all patient data, transcripts, and filled forms. Make sure to backup any important files first!</strong></p>
+                </div>
+                
+                <div class="method-card">
+                    <h4>PowerShell: Complete Cleanup (Advanced)</h4>
+                    <p>To remove all data at once, open PowerShell and run:</p>
+                    <div class="code-block"># Remove application data
+Remove-Item -Recurse -Force "$env:APPDATA\PhysioClinicAssistant" -ErrorAction SilentlyContinue
+
+# Remove local app data (logs, cache)
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\PhysioClinicAssistant" -ErrorAction SilentlyContinue
+
+# Remove temp files
+Remove-Item -Recurse -Force "$env:TEMP\PhysioClinicAssistant" -ErrorAction SilentlyContinue
+
+Write-Host "Cleanup complete!" -ForegroundColor Green</div>
+                </div>
+            </div>
+            
+            <!-- macOS Uninstall -->
+            <div id="uninstall-macos" class="tab-content">
+                <h3>Uninstalling on macOS</h3>
+                
+                <div class="method-card">
+                    <h4>Step 1: Remove the Application</h4>
+                    <ol>
+                        <li>Open <strong>Finder</strong></li>
+                        <li>Go to <strong>Applications</strong></li>
+                        <li>Drag <span class="data-path">PhysioClinicAssistant.app</span> to the Trash</li>
+                        <li>Empty the Trash</li>
+                    </ol>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Step 2: Remove Application Data (Optional)</h4>
+                    <p>To remove all saved data, settings, and downloaded models:</p>
+                    <ol>
+                        <li>Open <strong>Finder</strong></li>
+                        <li>Press <strong>Cmd + Shift + G</strong> (Go to Folder)</li>
+                        <li>Enter: <span class="data-path">~/Library/Application Support/</span></li>
+                        <li>Delete the folder: <span class="data-path">PhysioClinicAssistant</span></li>
+                    </ol>
+                    <p style="margin-top: 15px;">Also remove logs:</p>
+                    <ol>
+                        <li>Press <strong>Cmd + Shift + G</strong> again</li>
+                        <li>Enter: <span class="data-path">~/Library/Logs/</span></li>
+                        <li>Delete: <span class="data-path">PhysioClinicAssistant</span> folder (if present)</li>
+                    </ol>
+                </div>
+                
+                <div class="danger-box">
+                    <h4>Warning: Data Locations</h4>
+                    <p>The following data will be removed when cleaning:</p>
+                    <ul>
+                        <li><span class="data-path">~/Library/Application Support/PhysioClinicAssistant/</span> - Settings, database, AI models (~4.3GB)</li>
+                        <li><span class="data-path">~/Library/Logs/PhysioClinicAssistant/</span> - Application logs</li>
+                    </ul>
+                    <p><strong>This includes all patient data, transcripts, and filled forms. Make sure to backup any important files first!</strong></p>
+                </div>
+                
+                <div class="method-card">
+                    <h4>Terminal: Complete Cleanup (Advanced)</h4>
+                    <p>To remove all data at once, open Terminal and run:</p>
+                    <div class="code-block"># Remove the application
+rm -rf /Applications/PhysioClinicAssistant.app
+
+# Remove application data (settings, database, models)
+rm -rf ~/Library/Application\ Support/PhysioClinicAssistant
+
+# Remove logs
+rm -rf ~/Library/Logs/PhysioClinicAssistant
+
+# Remove cache
+rm -rf ~/Library/Caches/PhysioClinicAssistant
+
+echo "Cleanup complete!"</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Support -->
+        <div class="card">
+            <h2>Support & Documentation</h2>
             <p>Need help? Check out our resources:</p>
-            <ul style="padding-left: 20px; margin-top: 10px;">
-                <li><a href="https://github.com/nishaand12/FormFillerSoftware/blob/main/README.md" target="_blank">📚 Onboarding Guide</a></li>
-                <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSd_yKA_D7PrfL62dHHI5a6ywVzfExUSj1MMpHoizibDXAEtfQ/viewform?usp=header" target="_blank">🐛 Report Issues</a></li>
-                <li><a href="mailto:ceteasystems@gmail.com">📧 Email Support</a></li>
+            <ul style="padding-left: 20px; margin-top: 15px;">
+                <li><a href="https://github.com/nishaand12/FormFillerSoftware/blob/main/README.md" target="_blank">Onboarding Guide</a></li>
+                <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSd_yKA_D7PrfL62dHHI5a6ywVzfExUSj1MMpHoizibDXAEtfQ/viewform?usp=header" target="_blank">Report Issues</a></li>
+                <li><a href="mailto:ceteasystems@gmail.com">Email Support</a></li>
             </ul>
+            
+            <div class="success-box" style="margin-top: 20px;">
+                <h4>Thank You for Beta Testing!</h4>
+                <p>Your feedback is invaluable in helping us improve the application. Please report any bugs, issues, or suggestions using the links above. We appreciate your patience with any rough edges in this beta release!</p>
+            </div>
         </div>
         
         <div class="footer">
-            <p>&copy; 2025 Form Filler Assistant. Built with ❤️ for healthcare professionals.</p>
+            <p>&copy; 2025 Form Filler Assistant. Built with care for healthcare professionals.</p>
         </div>
     </div>
+    
+    <script>
+        function showTab(tabId) {
+            // Get the parent card of the clicked tab
+            const clickedTab = event.target;
+            const tabContainer = clickedTab.closest('.card');
+            
+            // Deactivate all tabs and content in this container
+            tabContainer.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            tabContainer.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Activate clicked tab and its content
+            clickedTab.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+    </script>
 </body>
 </html>

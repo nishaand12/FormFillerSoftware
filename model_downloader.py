@@ -18,8 +18,6 @@ class ModelDownloader:
             from app_paths import get_writable_path
             self.models_dir = str(get_writable_path("models"))
         except ImportError:
-            import sys
-            import os
             from pathlib import Path
             if sys.platform == 'darwin':
                 self.models_dir = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models")

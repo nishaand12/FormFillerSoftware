@@ -5,6 +5,7 @@ Uses Qwen model via llama_cpp_python for physiotherapy-specific summaries
 """
 
 import os
+import sys
 import re
 from llama_cpp import Llama
 
@@ -23,8 +24,6 @@ class Summarizer:
                 from app_paths import get_writable_path
                 model_path = str(get_writable_path("models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
             except ImportError:
-                import sys
-                import os
                 from pathlib import Path
                 if sys.platform == 'darwin':
                     model_path = str(Path.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")

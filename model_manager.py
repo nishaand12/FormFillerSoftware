@@ -5,6 +5,7 @@ Provides centralized, thread-safe access to the Qwen model for all workers
 """
 
 import os
+import sys
 import threading
 import time
 import logging
@@ -112,8 +113,6 @@ class ModelManager:
                     model_path = str(get_writable_path("models/mistral-7b-instruct-v0.1.Q4_K_M.gguf"))
             except ImportError:
                 # Fallback
-                import sys
-                import os
                 from pathlib import Path as PathLib
                 if sys.platform == 'darwin':
                     models_dir = PathLib.home() / "Library" / "Application Support" / "PhysioClinicAssistant" / "models"

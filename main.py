@@ -1763,6 +1763,8 @@ def is_first_run() -> bool:
 
 def run_first_run_setup(root) -> bool:
     """Run first-time setup: download models and configure app"""
+    import queue
+    
     try:
         # Create setup dialog
         setup_window = tk.Toplevel(root)
@@ -1806,13 +1808,46 @@ def run_first_run_setup(root) -> bool:
         progress = ttk.Progressbar(progress_frame, mode='determinate', maximum=100)
         progress.pack(fill="x", pady=(10, 0))
         
-        # Download flag
+        # Download flag and thread-safe queue for progress updates
         download_complete = {'success': False}
+        progress_queue = queue.Queue()
         
         def update_progress(percent, message):
-            """Update progress bar and status message from download thread"""
-            root.after(0, lambda: progress.config(value=percent))
-            root.after(0, lambda: status_var.set(message))
+            """Put progress update in queue (called from download thread)"""
+            progress_queue.put(('progress', percent, message))
+        
+        def poll_progress_queue():
+            """Poll the queue for progress updates (runs on main thread)"""
+            try:
+                while True:
+                    try:
+                        msg = progress_queue.get_nowait()
+                        msg_type = msg[0]
+                        
+                        if msg_type == 'progress':
+                            _, percent, message = msg
+                            progress.config(value=percent)
+                            status_var.set(message)
+                        elif msg_type == 'complete':
+                            complete_setup()
+                            return  # Stop polling
+                        elif msg_type == 'error':
+                            _, error_msg = msg
+                            status_var.set(f"Error: {error_msg}")
+                            progress.config(value=0)
+                            messagebox.showerror("Download Failed", 
+                                f"Failed to download models: {error_msg}\n\nYou can try downloading later from the Tools menu.")
+                            download_complete['success'] = False
+                            setup_window.after(500, setup_window.destroy)
+                            return  # Stop polling
+                    except queue.Empty:
+                        break
+                
+                # Continue polling every 100ms
+                setup_window.after(100, poll_progress_queue)
+            except tk.TclError:
+                # Window was destroyed, stop polling
+                pass
         
         def start_download():
             """Start model download in background thread"""
@@ -1831,37 +1866,34 @@ def run_first_run_setup(root) -> bool:
                     # Download all models
                     downloader.download_all_models()
                     
-                    # Complete setup
-                    root.after(0, lambda: status_var.set("Finalizing setup..."))
-                    root.after(0, lambda: progress.config(value=100))
-                    
-                    # Complete setup in main thread
-                    root.after(100, lambda: complete_setup())
+                    # Signal completion via queue
+                    progress_queue.put(('progress', 100, "Finalizing setup..."))
+                    progress_queue.put(('complete',))
                     
                 except Exception as e:
-                    root.after(0, lambda: status_var.set(f"Error: {e}"))
-                    root.after(0, lambda: progress.config(value=0))
-                    root.after(0, lambda: messagebox.showerror("Download Failed", 
-                        f"Failed to download models: {e}\n\nYou can try downloading later from the Tools menu."))
-                    download_complete['success'] = False
-                    root.after(500, setup_window.destroy)
+                    # Signal error via queue
+                    progress_queue.put(('error', str(e)))
             
-            def complete_setup():
-                """Complete first-run setup"""
-                # Mark first run as complete
-                try:
-                    from app_paths import get_writable_path
-                    marker_file = get_writable_path(".first_run_complete")
-                    marker_file.write_text("Setup completed successfully")
-                except:
-                    pass
-                
-                download_complete['success'] = True
-                status_var.set("Setup complete! You can now start recording.")
-                setup_window.after(1500, setup_window.destroy)
+            # Start polling for progress updates on main thread
+            setup_window.after(100, poll_progress_queue)
             
+            # Start download thread
             thread = threading.Thread(target=download_thread, daemon=True)
             thread.start()
+        
+        def complete_setup():
+            """Complete first-run setup"""
+            # Mark first run as complete
+            try:
+                from app_paths import get_writable_path
+                marker_file = get_writable_path(".first_run_complete")
+                marker_file.write_text("Setup completed successfully")
+            except:
+                pass
+            
+            download_complete['success'] = True
+            status_var.set("Setup complete! You can now start recording.")
+            setup_window.after(1500, setup_window.destroy)
         
         def skip_download():
             """Skip download and mark for later"""

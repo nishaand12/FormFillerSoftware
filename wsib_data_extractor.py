@@ -5,6 +5,7 @@ Uses Qwen for fast, efficient data extraction
 """
 
 import os
+import sys
 import json
 import re
 from datetime import datetime
@@ -30,7 +31,6 @@ class WSIBDataExtractor:
                 checkbox_path = get_resource_path("config/wsib_checkbox_groups.json")
             except ImportError:
                 # Fallback for development
-                import sys
                 if getattr(sys, '_MEIPASS', None):
                     from pathlib import Path
                     field_map_path = Path(sys._MEIPASS) / "config/field_map_wsib.json"
